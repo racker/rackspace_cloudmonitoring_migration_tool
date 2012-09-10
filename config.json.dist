@@ -5,5 +5,5 @@
 "rackspace_username": "rackspaceacct",
 "rackspace_apikey": "123456789qwertyuiop",
 
-"ca_certs_path": "/home/users/cacert.pem"
+"ca_certs_path": "./cacert.pem"
 }
