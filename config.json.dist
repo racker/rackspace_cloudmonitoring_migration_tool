@@ -1,0 +1,9 @@
+{
+"cloudkick_oauth_key": "asdfghjk",
+"cloudkick_oauth_secret": "zxcvbnm",
+
+"rackspace_username": "rackspaceacct",
+"rackspace_apikey": "123456789qwertyuiop",
+
+"ca_certs_path": "/home/users/cacert.pem"
+}

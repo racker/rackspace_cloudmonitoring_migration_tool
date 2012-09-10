@@ -1,0 +1,82 @@
+"""
+Alarm templates
+"""
+
+http_status_code = \
+"""
+if (metric['code'] nregex '{status_code_regex}') {{
+  return new AlarmStatus(CRITICAL, 'HTTP server did not respond with {status_code_regex} status');
+}}
+return new AlarmStatus(OK, 'HTTP server responded with {status_code_regex} status');
+"""
+
+http_body_match = \
+"""
+if (metric['body_match'] == '') {{
+    return new AlarmStatus(CRITICAL, 'HTTP response did not match {body_match}');
+}}
+return new AlarmStatus(OK, 'HTTP response matched {body_match}');
+"""
+
+http_response_time = \
+"""
+if (metric['duration'] >= {response_time}) {{
+  return new AlarmStatus(CRITICAL, 'HTTP request took {response_time} or more milliseconds.');
+}}
+return new AlarmStatus(OK, 'HTTP request took less than {response_time} milliseconds');
+"""
+
+ping_packet_loss = \
+"""
+if (metric['available'] < 100) {{
+  return new AlarmStatus(CRITICAL, 'Packet loss detected');
+}}
+return new AlarmStatus(OK, 'No packet loss detected');
+"""
+
+# A null alarm to associate the check with a nofitication plan.
+# If TCP server is not listening, then a CRITICAL state is automatically applied.
+tcp_connection_established = \
+"""
+return new AlarmStatus(OK, 'TCP connection established succesfully');
+"""
+
+tcp_banner_match = \
+"""
+if (metric['banner'] nregex '{banner_match}') {{
+  return new AlarmStatus(CRITICAL, 'TCP banner did not match {banner_match}');
+}}
+return new AlarmStatus(OK, 'TCP banner matched {banner_match}');
+"""
+
+# A null alarm to associate the check with a nofitication plan.
+# If SSH is not listening, then a CRITICAL state is automatically applied.
+ssh_server_listening = \
+"""
+return new AlarmStatus(OK, 'SSH connection established succesfully');
+"""
+
+# A null alarm to associate the check with a nofitication plan.
+# If the DNS record doesn't exists, then a CRITICAL state is automatically applied
+dns_record_exists = \
+"""
+return new AlarmStatus(OK, 'DNS record exists');
+"""
+
+memory_percent_critical = \
+"""
+if (metric['memory.used_percent'] > {memory_percent_critical}) {{
+  return new AlarmStatus(CRITICAL, 'Memory usage exceeded {memory_percent_critical}%');
+}}
+"""
+memory_percent_warning = \
+"""
+if (metric['memory.used_percent'] > {memory_percent_warning}) {{
+  return new AlarmStatus(WARNING, 'Memory usage exceeded {memory_percent_warning}%');
+}}
+"""
+
+memory_percent_ok = \
+"""
+return new AlarmStatus(OK, 'Memory usage was normal');
+"""
