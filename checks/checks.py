@@ -191,9 +191,9 @@ class Checks(object):
 
         if old_check and \
            new_check.get('details', {}) == old_check.details and \
-           new_check['target_hostname'] == old_check.target_hostname and \
+           new_check.get('target_hostname', None) == getattr(old_check, 'target_hostname', None) and \
            new_check['type'] == old_check.type and \
-           new_check['monitoring_zones'] == old_check.monitoring_zones:
+           new_check.get('monitoring_zones', None) == getattr(old_check, 'monitoring_zones', None):
             print 'Check is up to date'
             return old_check
 
