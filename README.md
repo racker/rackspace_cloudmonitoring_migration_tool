@@ -12,7 +12,9 @@ Copy config.json.dist to config.json and set these configation settings:
 
 ## Manual Mode
 
-TODO
+To run the migration script in manual mode (you are asked to confirm every action), run:
+    
+    ./migrate.py
 
 ## Automatic Mode
 
@@ -21,3 +23,9 @@ To run the migration script in automatic mode, run:
     ./migrate.py --auto
     
 You will be asked to specify which monitoring zones you wish to use for migrated checks, but all other migration tasks will be accomplished automatically.
+
+## Delete all MaaS data
+
+To delete all MaaS resources, run:
+
+    ./migrate.py clean
