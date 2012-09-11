@@ -26,6 +26,6 @@ You will be asked to specify which monitoring zones you wish to use for migrated
 
 ## Delete all MaaS data
 
-To delete all MaaS resources, run:
+To delete all MaaS resources created by this script, run:
 
     ./migrate.py clean
