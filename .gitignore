@@ -1,2 +1,3 @@
 config.json
 *.sw[a-z]
+*.pyc
