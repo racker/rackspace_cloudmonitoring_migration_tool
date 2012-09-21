@@ -2,15 +2,6 @@ import pprint
 
 from translator import translate
 
-_check_type_map = {
-    'HTTP': 'remote.http',
-    'HTTPS': 'remote.http',
-    'PING': 'remote.ping',
-    'SSH': 'remote.ssh',
-    'DNS': 'remote.dns',
-    'TCP': 'remote.tcp'
-}
-
 _consistency_levels = ['ALL', 'ONE', 'QUORUM']
 
 
@@ -35,7 +26,7 @@ class Alarms(object):
 
     def _alarm_eq(self, rs_alarm, alarm_dict):
         return all((rs_alarm.check_id == alarm_dict['check_id'],
-                   rs_alarm.notification_plan_id== alarm_dict['notification_plan_id'],
+                   rs_alarm.notification_plan_id == alarm_dict['notification_plan_id'],
                    rs_alarm.criteria == alarm_dict['criteria'],
                    rs_alarm.extra == alarm_dict['metadata']))
 
@@ -44,13 +35,18 @@ class Alarms(object):
         return any(eq_list)
 
     def sync_alarms(self):
-        # first, we need to know
         print '\nAlarms'
         print '------\n'
+        print 'NOTE: You must have at least one active notification endpoint applied to the'
+        print 'Cloudkick monitor or alarms will not be created. (You can do this in the Cloudkick'
+        print 'and re-run the script)'
 
         for node, entity, check, new_check, monitor in self.checks_map:
             rs_alarms = self.rackspace.list_alarms(entity)
-            alarms = translate(new_check, check, self.notification_plans[monitor['id']])
+
+            # The core assertion here is that you have to have at least one active notification endpoint
+            # in cloudkick or we won't bother setting up alarms.
+            alarms = translate(new_check, check, self.notification_plans.get(monitor['id']))
 
             if alarms:
                 for alarm in alarms:

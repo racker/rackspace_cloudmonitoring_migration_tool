@@ -1,6 +1,10 @@
 import pprint
 import re
 
+import utils
+import logging
+log = logging.getLogger('maas_migration')
+
 
 class Entities(object):
 
@@ -16,31 +20,44 @@ class Entities(object):
         self.nodes = cloudkick.nodes.read()['items']
 
     def _get_node_str(self, node):
+        if not node:
+            return 'None'
         return '%s (%s) ips:%s' % (node.get('name'), node.get('id'), ','.join(node.get('public_ips', []) + node.get('private_ips', [])))
 
     def _get_entity_str(self, entity):
-        return '%s (%s) ips:%s' % (entity.label, entity.id, ','.join([ip for _, ip in entity.ip_addresses]))
+        if not entity:
+            return 'None'
+        return '%s (%s) agent_id:%s ips:%s' % (entity.label, entity.id, entity.agent_id, ','.join([ip for _, ip in entity.ip_addresses]))
 
-    def _get_agent_id(self, node, entity_id=None):
+    def _get_agent_id(self, node, entity=None):
 
-        if self.auto:
-            return node['name']
-        else:
-            print 'Node %s' % self._get_node_str(node)
-            print 'An agent_id is required to connect an agent to this entity.'
-            print 'You will put this id in the rackspace_monitoring.conf file'
-            print 'Would you like to specify an agent_id? [y/n] (default: n)',
-            if raw_input() == 'y':
-                while True:
-                    result = raw_input('Choose an agent_id for this node: ')
-                    if result and re.match('.*\s.*', result):
-                        print 'Invalid Choice - must be null or contain no whitespace'
-                    elif result and result in self.agent_ids.values() and result != self.agent_ids.get(entity_id):
-                        print 'Invalid Choice - Colliding agent id with entity "%s"' % entity_id
-                    else:
-                        return result
+        def _check_id(agent_id):
+            if not agent_id:
+                return 'agent_id is null'
 
-    def _make_entity(self, node, entity_id=None):
+            # ensure agent_id has no whitespace
+            if agent_id and re.match('.*\s.*', agent_id):
+                return 'agent_id cannot contain whitespace'
+
+            # ensure agent_id is not already in use
+            for eid, aid in self.agent_ids.items():
+                if aid == agent_id:
+                    entity_id = entity.id if entity else False
+                    if eid != entity_id:
+                        return 'agent_id "%s" is already in use by another entity' % agent_id
+
+            return True
+
+        # use existing agent_id if available, the node name otherwise
+        name = entity.agent_id if entity else node['name'].replace(' ', '_')
+        result = _check_id(name)
+        if result == True:
+            return name
+
+        return utils.get_input('Cannot automatically set agent_id for node "%s" -- %s.\nPlease choose a different agent_id' % (node['name'], result),
+                               validator=_check_id)
+
+    def _make_entity(self, node, entity=None):
         label = node.get('name')
         metadata = {'ck_node_id': node.get('id')}
 
@@ -62,14 +79,14 @@ class Entities(object):
                       'ip_addresses': ips,
                       'metadata': metadata}
 
-        agent_id = self._get_agent_id(node, entity_id)
-        if agent_id:  # explicit empty string means something
+        agent_id = self._get_agent_id(node, entity)
+        if agent_id:
             new_entity['agent_id'] = agent_id
 
         return new_entity
 
     def _update_entity_from_node(self, entity, node):
-        new_entity = self._make_entity(node, entity_id=entity.id)
+        new_entity = self._make_entity(node, entity=entity)
 
         new_entity.pop('label')  # leave existing label
 
@@ -85,27 +102,31 @@ class Entities(object):
             new_entity.pop('agent_id')
 
         if new_entity:
-            print 'Updated entity %s' % (entity.id)
-            print pprint.pformat(new_entity)
-            if self.auto or raw_input('Update entity? [y/n]') == 'y':
+            log.debug('Updated fields on entity %s:' % (entity.id))
+            log.debug(pprint.pformat(new_entity))
+            if self.auto or utils.get_input('Update entity?', options=['y', 'n'], default='y') == 'y':
                 entity = self.rackspace.update_entity(entity, new_entity)
-                return entity
+                if new_entity.get('agent_id'):
+                    self.agent_ids[entity.id] = new_entity.get('agent_id')
+                return 'Updated', entity
         else:
-            return entity
+            log.debug('No update needed for entity %s' % (entity.id))
+            return 'Matched', entity
 
-        return None
+        return False, None
 
     def _create_entity_from_node(self, node):
         # if we get this far, we need to create an entity
         new_entity = self._make_entity(node)
         new_entity['extra'] = new_entity.pop('metadata')  # feels bad
-        print 'New Entity:'
-        print pprint.pformat(new_entity)
-        if self.auto or raw_input('Create new entity? [y/n]') == 'y':
+        log.debug('New Entity:')
+        log.debug(pprint.pformat(new_entity))
+        if self.auto or utils.get_input('Create new entity?', options=['y', 'n'], default='y') == 'y':
             entity = self.rackspace.create_entity(**new_entity)
-            return entity
+            self.agent_ids[entity.id] = entity.agent_id
+            return 'Created', entity
 
-        return None
+        return False, None
 
     def _get_or_create_entity_from_node(self, node):
         """
@@ -118,37 +139,47 @@ class Entities(object):
         """
         for entity in self.entities:
 
+            match = None
             # check in the entity metadata for ck_node_id first
             node_id = entity.extra.get('ck_node_id')
             if node_id == node.get('id'):
-                return self._update_entity_from_node(entity, node)
+                match = entity
 
             # we attempt to match entities based on public IP
             entity_ips = [ip for _, ip in entity.ip_addresses]
             for ip in node.get('public_ips', []):
                 if ip in entity_ips:
-                    return self._update_entity_from_node(entity, node)
+                    match = entity
+
+            if match:
+                log.debug('Found matching entity: %s' % self._get_entity_str(entity))
+                return self._update_entity_from_node(entity, node)
 
         # We weren't able to find a matching entity, so we need to create a new one
+        log.debug('Creating new entity for node: %s' % self._get_node_str(node))
         return self._create_entity_from_node(node)
 
     def sync_entities(self):
         """
         adds or updates entities in rs from nodes in ck
-
-        @param cloudkick: extern.cloudkick_api.Connection instance
-        @param rackspace: extern.rackspace_monitoring.drivers.rackspace.RackspaceMonitoringDriver instance
         """
-        print '\nEntities'
-        print '------\n'
+        log.info('\nEntities')
+        log.info('------\n')
 
         pairs = []
         for node in self.nodes:
-            entity = self._get_or_create_entity_from_node(node)
-            if entity:
+            log.info('Migrating node %s' % self._get_node_str(node))
+            msg, entity = self._get_or_create_entity_from_node(node)
+            if msg:
+                log.info('%s entity %s\n' % (msg, self._get_entity_str(entity)))
                 pairs.append((node, entity))
+            else:
+                log.info('No entity created for node %s\n' % self._get_node_str(node))
 
         # print out a report, if applicable
+        if not utils.get_input('Would you like to print a full entity report?', options=['y', 'n'], default='y') == 'y':
+            return pairs
+
         matched = []
         node_ids = []
         entity_ids = []
@@ -158,24 +189,23 @@ class Entities(object):
             entity_ids.append(entity.id)
 
         if matched:
-            print 'Matched Entities:'
-            print '\n'.join(matched)
+            log.info('Node --> Entity:')
+            log.info('%s\n' % '\n'.join(matched))
 
         orphaned = []
-        print 'Orphaned Nodes:'
         for node in self.nodes:
             if node['id'] not in node_ids:
                 orphaned.append(self._get_node_str(node))
         if orphaned:
-            print 'Orphaned Nodes:'
-            print '\n'.join(orphaned)
+            log.info('Orphaned Nodes:')
+            log.info('%s' % '\n'.join(orphaned))
 
         orphaned = []
         for entity in self.entities:
             if entity.id not in entity_ids:
                 orphaned.append(self._get_entity_str(entity))
         if orphaned:
-            print 'Orphaned Entities:'
-            print '\n'.join(orphaned)
+            log.info('Orphaned Entities:')
+            log.info('%s' % '\n'.join(orphaned))
 
         return pairs

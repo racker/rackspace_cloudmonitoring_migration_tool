@@ -1,5 +1,6 @@
 import templates
 
+
 def _make_alarm(label, rs_check, notification_plan, criteria):
     alarm = {}
     alarm['check_id'] = rs_check.id
@@ -13,6 +14,9 @@ def _make_alarm(label, rs_check, notification_plan, criteria):
 
 def translate_http(rs_check, ck_check, notification_plan):
     alarms = []
+
+    if not notification_plan:
+        return alarms
 
     if 'code' in ck_check['details']:
         criteria = templates.http_status_code.format(status_code_regex=ck_check['details']['code'])
@@ -37,6 +41,7 @@ def translate_ping(rs_check, ck_check, notification_plan):
     alarms.append(_make_alarm('ping_packet_loss', rs_check, notification_plan, criteria))
 
     return alarms
+
 
 def translate_ssh(rs_check, ck_check, notification_plan):
     alarms = []
@@ -65,6 +70,7 @@ def translate_tcp(rs_check, ck_check, notification_plan):
         alarms.append(_make_alarm('tcp_banner_match', rs_check, notification_plan, criteria))
 
     return alarms
+
 
 def translate_agent_memory(rs_check, ck_check, notification_plan):
     alarms = []

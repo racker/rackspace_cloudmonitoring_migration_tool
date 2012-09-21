@@ -10,7 +10,7 @@ _check_type_map = {
     'IO': 'agent.disk',
     'CPU': 'agent.cpu',
     'MEMORY': 'agent.memory',
-    #'PLUGIN': 'agent.plugin',
+    'PLUGIN': 'agent.plugin',
     'BANDWIDTH': 'agent.network',
 }
 
@@ -69,6 +69,9 @@ class Checks(object):
             for attr in ['url', 'method', 'auth_user', 'auth_password', 'body']:
                 if attr in ck_details:
                     rs_details[attr] = ck_details[attr]
+
+            if not rs_details.get('method'):
+                rs_details['method'] = 'GET'
 
             if check['type']['description'] == 'HTTPS':
                 rs_details['ssl'] = True
