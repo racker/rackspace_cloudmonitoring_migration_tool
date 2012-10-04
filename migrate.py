@@ -101,7 +101,7 @@ def _setup(options, args):
         parser.print_usage()
 
 if __name__ == "__main__":
-    usage = 'usage: %prog [options] migrate/purge/shell'
+    usage = 'usage: %prog [options] migrate/clean/shell'
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--config", dest="config", help="path to config file", metavar="FILE")
     parser.add_option("--dry-run", action="store_true", dest="dry_run", default=False, help="don't commit anything, just print the report")
