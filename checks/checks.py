@@ -15,7 +15,7 @@ _check_type_map = {
     'IO': 'agent.disk',
     'CPU': 'agent.cpu',
     'MEMORY': 'agent.memory',
-    'PLUGIN': 'agent.plugin',
+    #'PLUGIN': 'agent.plugin',
     'BANDWIDTH': 'agent.network',
 }
 
