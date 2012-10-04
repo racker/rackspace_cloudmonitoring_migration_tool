@@ -2,6 +2,21 @@
 Alarm templates
 """
 
+# Custom Plugins
+custom_plugin = \
+"""
+if (metric['legacy_status'] == 'err') {{
+    return new AlarmStatus(CRITICAL, '');
+}}
+
+if (metric['legacy_status'] == 'warn') {{
+    return new AlarmStatus(WARNING, '');
+}}
+
+return new AlarmStatus(OK, '');
+"""
+
+# HTTP
 http_status_code = \
 """
 if (metric['code'] nregex '{status_code_regex}') {{

@@ -19,42 +19,32 @@ class Entities(object):
         self.agent_ids = dict([(e.id, e.agent_id) for e in self.entities])  # This sucks, but it works.
         self.nodes = cloudkick.nodes.read()['items']
 
-    def _get_node_str(self, node):
-        if not node:
-            return 'None'
-        return '%s (%s) ips:%s' % (node.get('name'), node.get('id'), ','.join(node.get('public_ips', []) + node.get('private_ips', [])))
-
-    def _get_entity_str(self, entity):
-        if not entity:
-            return 'None'
-        return '%s (%s) agent_id:%s ips:%s' % (entity.label, entity.id, entity.agent_id, ','.join([ip for _, ip in entity.ip_addresses]))
-
     def _get_agent_id(self, node, entity=None):
 
         def _check_id(agent_id):
             if not agent_id:
-                return 'agent_id is null'
+                return False, 'agent_id is null'
 
             # ensure agent_id has no whitespace
             if agent_id and re.match('.*\s.*', agent_id):
-                return 'agent_id cannot contain whitespace'
+                return False, 'agent_id cannot contain whitespace'
 
             # ensure agent_id is not already in use
             for eid, aid in self.agent_ids.items():
                 if aid == agent_id:
                     entity_id = entity.id if entity else False
                     if eid != entity_id:
-                        return 'agent_id "%s" is already in use by another entity' % agent_id
+                        return False, 'agent_id "%s" is already in use by another entity' % agent_id
 
-            return True
+            return True, agent_id
 
         # use existing agent_id if available, the node name otherwise
         name = entity.agent_id if entity else node['name'].replace(' ', '_')
-        result = _check_id(name)
+        result, msg = _check_id(name)
         if result == True:
-            return name
+            return msg
 
-        return utils.get_input('Cannot automatically set agent_id for node "%s" -- %s.\nPlease choose a different agent_id' % (node['name'], result),
+        return utils.get_input('Cannot automatically set agent_id for node "%s" -- %s.\nPlease choose a different agent_id' % (node['name'], msg),
                                validator=_check_id)
 
     def _make_entity(self, node, entity=None):
@@ -110,7 +100,6 @@ class Entities(object):
                     self.agent_ids[entity.id] = new_entity.get('agent_id')
                 return 'Updated', entity
         else:
-            log.debug('No update needed for entity %s' % (entity.id))
             return 'Matched', entity
 
         return False, None
@@ -152,11 +141,10 @@ class Entities(object):
                     match = entity
 
             if match:
-                log.debug('Found matching entity: %s' % self._get_entity_str(entity))
                 return self._update_entity_from_node(entity, node)
 
         # We weren't able to find a matching entity, so we need to create a new one
-        log.debug('Creating new entity for node: %s' % self._get_node_str(node))
+        log.debug('Creating new entity for node: %s' % utils.node_to_str(node))
         return self._create_entity_from_node(node)
 
     def sync_entities(self):
@@ -168,44 +156,12 @@ class Entities(object):
 
         pairs = []
         for node in self.nodes:
-            log.info('Migrating node %s' % self._get_node_str(node))
+            log.info('Cloudkick Node %s' % utils.node_to_str(node))
             msg, entity = self._get_or_create_entity_from_node(node)
             if msg:
-                log.info('%s entity %s\n' % (msg, self._get_entity_str(entity)))
+                log.info('%s Rackspace Entity %s\n' % (msg, utils.entity_to_str(entity)))
                 pairs.append((node, entity))
             else:
-                log.info('No entity created for node %s\n' % self._get_node_str(node))
-
-        # print out a report, if applicable
-        if not utils.get_input('Would you like to print a full entity report?', options=['y', 'n'], default='y') == 'y':
-            return pairs
-
-        matched = []
-        node_ids = []
-        entity_ids = []
-        for node, entity in pairs:
-            matched.append('Node %s -> Entity %s' % (self._get_node_str(node), self._get_entity_str(entity)))
-            node_ids.append(node['id'])
-            entity_ids.append(entity.id)
-
-        if matched:
-            log.info('Node --> Entity:')
-            log.info('%s\n' % '\n'.join(matched))
-
-        orphaned = []
-        for node in self.nodes:
-            if node['id'] not in node_ids:
-                orphaned.append(self._get_node_str(node))
-        if orphaned:
-            log.info('Orphaned Nodes:')
-            log.info('%s' % '\n'.join(orphaned))
-
-        orphaned = []
-        for entity in self.entities:
-            if entity.id not in entity_ids:
-                orphaned.append(self._get_entity_str(entity))
-        if orphaned:
-            log.info('Orphaned Entities:')
-            log.info('%s' % '\n'.join(orphaned))
+                log.info('Skipped')
 
         return pairs

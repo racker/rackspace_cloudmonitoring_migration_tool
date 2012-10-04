@@ -15,9 +15,6 @@ def _make_alarm(label, rs_check, notification_plan, criteria):
 def translate_http(rs_check, ck_check, notification_plan):
     alarms = []
 
-    if not notification_plan:
-        return alarms
-
     if 'code' in ck_check['details']:
         criteria = templates.http_status_code.format(status_code_regex=ck_check['details']['code'])
         alarms.append(_make_alarm('http_status_code', rs_check, notification_plan, criteria))
@@ -104,9 +101,11 @@ _map = {
 
 
 def translate(rs_check, ck_check, notification_plan, **kwargs):
+    if not notification_plan:
+        return []
+
     f = _map.get(rs_check.type)
     if f:
         return f(rs_check, ck_check, notification_plan, **kwargs)
     else:
-        print 'Translator for check type %s not found' % (rs_check.type)
-        return None
+        return []

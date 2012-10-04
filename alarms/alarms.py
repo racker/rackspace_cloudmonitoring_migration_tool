@@ -2,6 +2,10 @@ import pprint
 
 from translator import translate
 
+import utils
+import logging
+log = logging.getLogger('maas_migration')
+
 _consistency_levels = ['ALL', 'ONE', 'QUORUM']
 
 
@@ -35,52 +39,69 @@ class Alarms(object):
         return any(eq_list)
 
     def sync_alarms(self):
-        print '\nAlarms'
-        print '------\n'
-        print 'NOTE: You must have at least one active notification endpoint applied to the'
-        print 'Cloudkick monitor or alarms will not be created. (You can do this in the Cloudkick'
-        print 'and re-run the script)'
+        log.info('\nAlarms')
+        log.info('------\n')
+        log.info('NOTE: You must have at least one active notification endpoint applied to the')
+        log.info('Cloudkick monitor or alarms will not be created. (You can do this in Cloudkick')
+        log.info('and re-run the script)')
 
         for node, entity, check, new_check, monitor in self.checks_map:
+
             rs_alarms = self.rackspace.list_alarms(entity)
 
             # The core assertion here is that you have to have at least one active notification endpoint
             # in cloudkick or we won't bother setting up alarms.
             alarms = translate(new_check, check, self.notification_plans.get(monitor['id']))
 
-            if alarms:
-                for alarm in alarms:
-                    pprint.pprint(alarm)
+            log.info('Node:\n%s' % (self._get_entity_str(entity)))
+            log.info('Check:\n%s' % (pprint.pformat(check)))
 
-                    if self._is_duplicate_alarm(rs_alarms, alarm):
-                        print 'Duplicate alarm detected, skipping'
+            if not alarms:
+                log.info('No alarms to create')
+
+            for alarm in alarms:
+                log.debug('Alarm:\n%s' % pprint.pformat(alarm))
+                if self._is_duplicate_alarm(rs_alarms, alarm):
+                    log.info('No update needed')
+                    continue
+
+                # first, we have to run a test check and get the results
+                check_result = None
+                check_test_success = True
+                try:
+                    check_result = self.rackspace.test_existing_check(new_check)
+                    if False in [r['available'] for r in check_result]:
+                        check_test_success = False
+                except Exception as e:
+                    check_result = e
+                    check_test_success = False
+                if not check_test_success:
+                    log.info('Check Test Results:\n%s' % pprint.pformat(check_result))
+                    if utils.get_input('Check test failed - save alarm anyway?', options=['y', 'n'], default='n') != 'y':
                         continue
 
-                    try:
-                        check_result = self.rackspace.test_existing_check(new_check)
-                        if False in [r['available'] for r in check_result]:
-                            print 'Check test failed for check %s, save alarm anyway?' % (new_check),
-                            if not raw_input('[y/n]') == 'y':
-                                continue
-                    except Exception as e:
-                        check_result = None
-                        print 'Check test failed!'
-                        print 'Exception: %s' % e
-                        print 'Save alarm anyway?'
-                        if not raw_input('[y/n]') == 'y':
-                            continue
+                # if the test check worked, we can test the alarm
+                save_alarm = True
+                if check_test_success:
+                    # BUG: check results need moniitoring_zone_id and status for the alarm test to work, agent
+                    #      checks do not provide this.
+                    for r in check_result:
+                        if not r.get('monitoring_zone_id'):
+                            r['monitoring_zone_id'] = 'mzdfw'
+                        if not r.get('status'):
+                            r['status'] = 'dummy'
 
-                    if check_result:
-                        alarm_result = self.rackspace.test_alarm(entity, criteria=alarm['criteria'], check_data=check_result)[0]
-                        if alarm_result['state'] != 'OK':
-                            print 'Alarm test failed with result:\n%s' % alarm_result
-                            print 'Save alarm anyway?',
-                            if raw_input('[y/n]: ') != 'y':
-                                continue
+                    alarm_result = self.rackspace.test_alarm(entity, criteria=alarm['criteria'], check_data=check_result)
+                    for r in alarm_result:
+                        log.debug('Alarm Test Results:\n%s' % pprint.pformat(alarm_result))
+                        if r['state'] != 'OK':
+                            if utils.get_input('Alarm test failed - save alarm anyway?', options=['y', 'n'], default='n') != 'y':
+                                save_alarm = False
+                                break
 
-                    try:
-                        self.rackspace.create_alarm(entity, **alarm)
-                    except Exception as e:
-                        import pdb; pdb.set_trace()
+                if save_alarm and (self.auto or utils.get_input('Save this alarm?', options=['y', 'n'], default='y') == 'y'):
+                    self.rackspace.create_alarm(entity, **alarm)
+                else:
+                    log.info('skipping')
 
-        print 'TODO'
+            log.info('')

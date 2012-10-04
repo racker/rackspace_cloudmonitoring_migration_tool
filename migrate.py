@@ -34,23 +34,23 @@ def _clean(args, options, config, rs, ck):
     for e in rs.list_entities():
         for a in rs.list_alarms(e):
             a.delete()
-            log.info('deleted alarm %s:' % a.id)
+            log.info('deleted alarm: %s' % a.id)
         for c in rs.list_checks(e):
             c.delete()
-            log.info('deleted check %s:' % c.id)
+            log.info('deleted check: %s' % c.id)
         try:
             e.delete()
-            log.info('deleted entity %s:' % e.id)
+            log.info('deleted entity: %s' % e.id)
         except Exception as ex:
             log.info('failed deleting entity %s: %s' % (e.id, ex))
 
     for n in rs.list_notifications():
         n.delete()
-        log.info('deleted notification %s:' % n.id)
+        log.info('deleted notification: %s' % n.id)
     for p in rs.list_notification_plans():
         try:
             p.delete()
-            log.info('deleted notification plan %s:' % p.id)
+            log.info('deleted notification plan: %s' % p.id)
         except Exception as ex:
             log.info('failed deleting notification plan %s: %s' % (p.id, ex))
 

@@ -37,7 +37,7 @@ def get_input(msg=None, options=None, default=None, null=False, validator=None, 
     if default and not options:
         prompt += ' [%s]' % default
     if msg or default or options:
-        prompt += ':'
+        prompt += ': '
 
     while True:
 
@@ -60,6 +60,15 @@ def get_input(msg=None, options=None, default=None, null=False, validator=None, 
         if not val and default:
             return default
 
+        # if we have a custom validator, validate input passes validator callback
+        if validator:
+            valid, result = validator(val)
+            if valid:
+                return result
+            else:
+                sys.stderr.write('%s\n' % result)
+                continue
+
         # validate input is allowed
         if options and val not in options:
             sys.stderr.write('Input must be one of: %s\n' % ', '.join(options))
@@ -71,14 +80,6 @@ def get_input(msg=None, options=None, default=None, null=False, validator=None, 
             sys.stderr.write('Input required\n')
             val = ''
             continue
-
-        # validate input passes validator callback
-        if validator:
-            valid = validator(val)
-            if valid != True:
-                sys.stderr.write(unicode(valid) + '\n')
-                val = ''
-                continue
 
         return val
 
@@ -169,3 +170,22 @@ def setup_ssl(path=None):
             return
         else:
             sys.exit(1)
+
+
+# pass a RS notification from the API and get out a nicely formatted string
+def notification_to_str(notification):
+    return '%s (%s) %s:%s' % (notification.label, notification.id, notification.type, notification.details)
+
+
+# pass a CK node dict from the API and get out a nicely formatted string
+def node_to_str(node):
+    if not node:
+        return 'None'
+    return '%s (%s) ips:%s' % (node.get('name'), node.get('id'), ','.join(node.get('public_ips', []) + node.get('private_ips', [])))
+
+
+# pass in a RS entity from the API and get out a nicely formatted string
+def entity_to_str(entity):
+    if not entity:
+        return 'None'
+    return '%s (%s) agent_id:%s ips:%s' % (entity.label, entity.id, entity.agent_id, ','.join([ip for _, ip in entity.ip_addresses]))
