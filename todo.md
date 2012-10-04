@@ -4,3 +4,4 @@ when a check has no monitoring zones, reach has no way of fixing it (more of an 
 
 alarms are failing because no notification plans are being made for the reach production account
 -o FILE should log stderr to the file as well
+documentation (migrate.py --help) says purge, but the actual flag is clean
