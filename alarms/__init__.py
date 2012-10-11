@@ -1,3 +1,3 @@
-from alarms import Alarms
+from alarms import AlarmMigrator
 
-__all__ = ["Alarms"]
+__all__ = ["AlarmMigrator"]

@@ -9,10 +9,12 @@ sys.path = [SCRIPT_DIR, os.path.join(SCRIPT_DIR, "extern")] + sys.path
 
 from optparse import OptionParser
 
-from entities import Entities
-from checks import Checks
-from notifications import Notifications
-from alarms import Alarms
+from entities import EntityMigrator
+from checks import CheckMigrator
+from notifications import NotificationMigrator
+from alarms import AlarmMigrator
+
+from tests.runner import run_tests
 
 import utils
 
@@ -21,8 +23,41 @@ import logging
 log = logging.getLogger('maas_migration')
 
 
-def _print_report(entities, check, plans, alarms):
-    log.info('Done')
+class Migrator(object):
+
+    ck_api = None
+    rs_api = None
+
+    _rs_entities_cache = None
+
+    migrated_entities = None
+
+    def __init__(self, ck_api, rs_api, config, options):
+        self.config = config
+        self.options = options
+        self.ck_api = ck_api
+        self.rs_api = rs_api
+
+        self.migrated_entities = []
+
+    def _print_report(self):
+        log.info('DONE')
+
+    def get_rs_entities(self):
+        if not self._rs_entities_cache:
+            self._rs_entities_cache = self.rs_api.list_entities()
+        return self._rs_entities_cache
+
+    def migrate(self):
+        e = EntityMigrator(self)
+        e.migrate()
+        c = CheckMigrator(self)
+        c.migrate()
+        n = NotificationMigrator(self)
+        n.migrate()
+        a = AlarmMigrator(self)
+        a.migrate()
+        self._print_report()
 
 
 def _clean(args, options, config, rs, ck):
@@ -56,63 +91,51 @@ def _clean(args, options, config, rs, ck):
 
 
 def _migrate(args, options, config, rs, ck):
-    e = Entities(ck, rs, auto=options.auto, dry_run=options.dry_run)
-    entities = e.sync_entities()
-    c = Checks(ck, rs, entities, monitoring_zones=config.get('monitoring_zones', []), auto=options.auto, dry_run=options.dry_run)
-    checks = c.sync_checks()
-    n = Notifications(ck, rs, [c[4] for c in checks], auto=options.auto, dry_run=options.dry_run)
-    plans = n.sync_notifications()
-    a = Alarms(ck, rs, checks, plans, consistency_level=config.get('alarm_consistency_level', 'ALL'), auto=options.auto, dry_run=options.dry_run)
-    alarms = a.sync_alarms()
-    _print_report(entities, checks, plans, alarms)
+    m = Migrator(ck, rs, config, options)
+    m.migrate()
 
 
 def _setup(options, args):
 
-    # setup logger
-    utils.setup_logging('INFO' if options.quiet else 'DEBUG', options.output)
+    # setup, read config, init APIs
+    utils.setup_logging('DEBUG')
 
-    # read config file
-    config = utils.get_config(options.config) if options.config else {}
-
-    # setup ssl
-    utils.setup_ssl(options.ca_certs_path or config.get('ca_certs_path'))
-
-    # init cloudkick api lib
-    ck = utils.setup_ck(config.get('cloudkick_oauth_key'), config.get('cloudkick_oauth_secret'))
-
-    # init rackspace api lib
-    rs = utils.setup_rs(config.get('rackspace_username'), config.get('rackspace_apikey'))
-
-    # do work
-    args = args
-    if args[0] == 'shell':
-        try:
-            from IPython import embed
-            embed()
-        except ImportError:
-            import code
-            code.interact(local=locals())
-    elif args[0] == 'clean':
-        _clean(args, options, config, rs, ck)
-    elif args[0] == 'migrate':
-        _migrate(args, options, config, rs, ck)
+    if args[0] == 'test':
+        run_tests('%s/tests' % SCRIPT_DIR)
     else:
-        parser.print_usage()
+        config = utils.get_config(options.config) if options.config else {}
+        utils.setup_ssl(options.ca_certs_path or config.get('ca_certs_path'))
+        ck = utils.setup_ck(config.get('cloudkick_oauth_key'), config.get('cloudkick_oauth_secret'))
+        rs = utils.setup_rs(config.get('rackspace_username'), config.get('rackspace_apikey'))
+
+        # do work
+        if args[0] == 'shell':
+            try:
+                from IPython import embed
+                embed()
+            except ImportError:
+                import code
+                code.interact(local=locals())
+        elif args[0] == 'clean':
+            _clean(args, options, config, rs, ck)
+        elif args[0] == 'migrate':
+            _migrate(args, options, config, rs, ck)
+        else:
+            parser.print_usage()
 
 if __name__ == "__main__":
-    usage = 'usage: %prog [options] migrate/clean/shell'
+    usage = 'usage: %prog [options] migrate/clean/shell/test'
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--config", dest="config", help="path to config file", metavar="FILE")
-    parser.add_option("--dry-run", action="store_true", dest="dry_run", default=False, help="don't commit anything, just print the report")
-    parser.add_option("--ca_certs_path", action="store", dest="ca_certs_path", default=os.path.join(SCRIPT_DIR, "cacert.pem"), help="path to cacert bundle for ssl verification", metavar="FILE")
+    parser.add_option("--dry_run", dest="dry_run", help="don't commit anything")
+    parser.add_option("--ca_certs_path", action="store", dest="ca_certs_path", help="path to cacert bundle for ssl verification", metavar="FILE")
     parser.add_option("-d", "--debug", action="store_true", dest="debug", default=False, help="debug mode (more logging, drop to debugger on exception")
     parser.add_option("-o", "--output", dest="output", help="path to logfile", metavar="FILE")
     parser.add_option("-a", "--auto", action="store_true", dest="auto", default=False, help="don't prompt for anything")
-    parser.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="log minimal info")
+    parser.add_option("--no_test", action="store_true", dest="no_test", default=False, help="Do *NOT* test checks and alarms before they are created")
 
     (options, args) = parser.parse_args()
-    if not args or args[0] not in ['shell', 'clean', 'migrate']:
+    if not args or args[0] not in ['shell', 'clean', 'migrate', 'test']:
         parser.print_help()
         sys.exit()
 

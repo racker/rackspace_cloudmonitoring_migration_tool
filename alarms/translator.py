@@ -5,7 +5,6 @@ def _make_alarm(label, rs_check, notification_plan, criteria):
     alarm = {}
     alarm['check_id'] = rs_check.id
     alarm['notification_plan_id'] = notification_plan.id
-    alarm['label'] = label
     alarm['metadata'] = rs_check.extra
     alarm['metadata']['check_type'] = label
     alarm['criteria'] = criteria
@@ -16,17 +15,17 @@ def translate_http(rs_check, ck_check, notification_plan):
     alarms = []
 
     if 'code' in ck_check['details']:
-        criteria = templates.http_status_code.format(status_code_regex=ck_check['details']['code'])
+        criteria = templates.http_status_code.format(status_code_regex=ck_check.details['code'])
         alarms.append(_make_alarm('http_status_code', rs_check, notification_plan, criteria))
 
     if 'body' in ck_check['details']:
         # The regex is already applied in the Check, so the alarm
         # simply checks whether the match is an empty string
-        criteria = templates.http_body_match.format(body_match=ck_check['details']['body'])
+        criteria = templates.http_body_match.format(body_match=ck_check.details['body'])
         alarms.append(_make_alarm('http_body_match', rs_check, notification_plan, criteria))
 
     if 'rt_ms' in ck_check['details']:
-        criteria = templates.http_response_time.format(response_time=ck_check['details']['rt_ms'])
+        criteria = templates.http_response_time.format(response_time=ck_check.details['rt_ms'])
         alarms.append(_make_alarm('http_response_time', rs_check, notification_plan, criteria))
 
     return alarms
@@ -63,7 +62,7 @@ def translate_tcp(rs_check, ck_check, notification_plan):
     alarms.append(_make_alarm('tcp_connection_established', rs_check, notification_plan, criteria))
 
     if 'banner_match' in ck_check['details']:
-        criteria = templates.tcp_banner_match.format(banner_match=ck_check['details']['banner_match'])
+        criteria = templates.tcp_banner_match.format(banner_match=ck_check.details['banner_match'])
         alarms.append(_make_alarm('tcp_banner_match', rs_check, notification_plan, criteria))
 
     return alarms
@@ -74,11 +73,11 @@ def translate_agent_memory(rs_check, ck_check, notification_plan):
 
     # Generate CPU stolen alarm
     criteria = ""
-    if 'mem_percent_crit' in ck_check['details']:
-        criteria = criteria + templates.memory_percent_critical.format(memory_percent_critical=ck_check['details']['mem_percent_crit'])
-    if 'mem_percent_warn' in ck_check['details']:
-        criteria = criteria + templates.memory_percent_warning.format(memory_percent_warning=ck_check['details']['mem_percent_warn'])
-    if 'mem_percent_crit' in ck_check['details'] or 'mem_percent_warn' in ck_check['details']:
+    if 'mem_percent_crit' in ck_check.details:
+        criteria = criteria + templates.memory_percent_critical.format(memory_percent_critical=ck_check.details['mem_percent_crit'])
+    if 'mem_percent_warn' in ck_check.details:
+        criteria = criteria + templates.memory_percent_warning.format(memory_percent_warning=ck_check.details['mem_percent_warn'])
+    if 'mem_percent_crit' in ck_check.details or 'mem_percent_warn' in ck_check.details:
         criteria = criteria + templates.memory_percent_ok.format()
     if criteria:
         alarms.append(_make_alarm('memory_percent_used', rs_check, notification_plan, criteria))
@@ -100,12 +99,12 @@ _map = {
 }
 
 
-def translate(rs_check, ck_check, notification_plan, **kwargs):
-    if not notification_plan:
+def translate(migrated_check, **kwargs):
+    if not migrated_check.rs_notification_plan:
         return []
 
-    f = _map.get(rs_check.type)
+    f = _map.get(migrated_check.rs_check.type)
     if f:
-        return f(rs_check, ck_check, notification_plan, **kwargs)
+        return f(migrated_check.rs_check, migrated_check.ck_check, migrated_check.rs_notification_plan, **kwargs)
     else:
         return []

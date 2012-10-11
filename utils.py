@@ -98,11 +98,10 @@ def setup_rs(rs_username=None, rs_api_key=None):
 
     try:
         driver = get_driver(Provider.RACKSPACE)(rs_username, rs_api_key)
-        len(driver.list_entities())
-        log.debug('Rackspace Cloud Monitoring API: ok')
         return driver
     except Exception as e:
-        log.error('Rackspace Cloud Monitoring API: failed - %s' % e,)
+        sys.stderr.write('Failed to initialize Rackspace API.\n')
+        sys.stderr.write('Exception: %s' % (e))
         sys.exit(1)
 
 
@@ -110,21 +109,14 @@ def setup_ck(ck_oauth_key=None, ck_oauth_secret=None):
     """
     set up cloudkick-py, prompt for key/secret if not configured
     """
-    from cloudkick_api import Connection
+    from cloudkick_api.wrapper import CloudkickApi
 
     if not ck_oauth_key:
         ck_oauth_key = get_input("Cloudkick OAuth Key: ")
     if not ck_oauth_secret:
         ck_oauth_secret = get_input("Cloudkick OAuth Secret: ", hidden=True)
 
-    try:
-        conn = Connection(oauth_key=str(ck_oauth_key), oauth_secret=str(ck_oauth_secret))
-        len(conn.nodes.read()["items"])
-        log.debug('Cloudkick API: ok')
-        return conn
-    except Exception as e:
-        log.error('Cloudkick API: failed - %s' % e)
-        sys.exit(1)
+    return CloudkickApi(ck_oauth_key, ck_oauth_secret)
 
 
 def get_config(config_file):
@@ -157,14 +149,14 @@ def setup_ssl(path=None):
     import libcloud.security
 
     if path:
+        print path
         libcloud.security.CA_CERTS_PATH.append(path)
 
     # if no CA bundles are found we need to do something
     if not any([os.path.exists(path) for path in libcloud.security.CA_CERTS_PATH]):
         log.debug("SSL CA bundle not found.")
         log.debug("You can find an updated bundle here: http://curl.haxx.se/ca/cacert.pem")
-        log.debug("You can specify where to look with 'ca_cert_path' in the config.")
-        log.debug("Would you like to continue without verifying SSL certs? ",)
+        log.debug("You can specify where to look with 'ca_certs_path' in the config.")
         if get_input('Would you like to continue without verifying SSL certs?', options=['y', 'n'], default='n') == 'y':
             libcloud.security.VERIFY_SSL_CERT = False
             return

@@ -1,3 +1,3 @@
-from entities import Entities
+from entities import EntityMigrator, MigratedEntity
 
-__all__ = ["Entities"]
+__all__ = ["EntityMigrator", "MigratedEntity"]

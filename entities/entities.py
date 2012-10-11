@@ -1,167 +1,169 @@
 import pprint
-import re
+
+from copy import copy
 
 import utils
 import logging
-log = logging.getLogger('maas_migration')
 
 
-class Entities(object):
+class MigratedEntity(object):
+    """
+    CK Node --> RS Entity
+    """
+    ck_api = None
+    rs_api = None
 
-    def __init__(self, cloudkick, rackspace, auto=False, dry_run=False):
-        self.cloudkick = cloudkick
-        self.rackspace = rackspace
+    ck_node = None  # extern/cloudkick_api/wrapper.py:Node instance
+    rs_entity = None  # extern/libcloud/rackspace_monitoring/base.py:Entity instance
 
-        self.dry_run = dry_run
-        self.auto = auto
+    migrated_checks = None
 
-        self.entities = rackspace.list_entities()
-        self.agent_ids = dict([(e.id, e.agent_id) for e in self.entities])  # This sucks, but it works.
-        self.nodes = cloudkick.nodes.read()['items']
+    _entity_cache = None  # dict - JSON serializable and suitable for using with the RSC entity API
+    _rs_entities_cache = None  # list - a rs_api.list_entities() call, you can pass in the results as a cache
 
-    def _get_agent_id(self, node, entity=None):
+    def __init__(self, migrator, ck_node):
+        self.migrator = migrator
 
-        def _check_id(agent_id):
-            if not agent_id:
-                return False, 'agent_id is null'
+        self.ck_api = migrator.ck_api
+        self.rs_api = migrator.rs_api
 
-            # ensure agent_id has no whitespace
-            if agent_id and re.match('.*\s.*', agent_id):
-                return False, 'agent_id cannot contain whitespace'
+        self.ck_node = ck_node
 
-            # ensure agent_id is not already in use
-            for eid, aid in self.agent_ids.items():
-                if aid == agent_id:
-                    entity_id = entity.id if entity else False
-                    if eid != entity_id:
-                        return False, 'agent_id "%s" is already in use by another entity' % agent_id
+        # API call caches
+        self._rs_alarms_cache = None
+        self._rs_checks_cache = None
 
-            return True, agent_id
+        # find suitable existing entity
+        self.rs_entity = self._find_entity()
 
-        # use existing agent_id if available, the node name otherwise
-        name = entity.agent_id if entity else node['name'].replace(' ', '_')
-        result, msg = _check_id(name)
-        if result == True:
-            return msg
+        # JSON-serializable dict suitable for using with rs_api
+        self._entity_cache = {}
+        self._populate_entity()
 
-        return utils.get_input('Cannot automatically set agent_id for node "%s" -- %s.\nPlease choose a different agent_id' % (node['name'], msg),
-                               validator=_check_id)
+        # list of checks applied to this entity
+        self.migrated_checks = []
 
-    def _make_entity(self, node, entity=None):
-        label = node.get('name')
-        metadata = {'ck_node_id': node.get('id')}
+    def __str__(self):
+        return pprint.pformat(self._cache)
 
-        # add ips to the entity in a semi-consistent way
-        primary_ip = node.get('ipaddress')
-        public_ips = [ip for ip in node.get('public_ips') if ip != primary_ip]
-        public_ips.sort()
-        private_ips = node.get('private_ips')
-        private_ips.sort()
-        ips = {'public0_v4': primary_ip}
-        for i, ip in enumerate(public_ips):
-            key = 'public%s_v4' % (i + 1)
-            ips[key] = ip
-        for i, ip in enumerate(private_ips):
-            key = 'private%s_v4' % (i)
-            ips[key] = ip
+    def get_rs_alarms(self):
+        if not self._rs_alarms_cache:
+            self._rs_alarms_cache = self.rs_api.list_alarms(self.rs_entity)
+        return self._rs_alarms_cache
 
-        new_entity = {'label': label,
-                      'ip_addresses': ips,
-                      'metadata': metadata}
+    def get_rs_checks(self):
+        if not self._rs_checks_cache:
+            self._rs_checks_cache = self.rs_api.list_checks(self.rs_entity)
+        return self._rs_checks_cache
 
-        agent_id = self._get_agent_id(node, entity)
-        if agent_id:
-            new_entity['agent_id'] = agent_id
-
-        return new_entity
-
-    def _update_entity_from_node(self, entity, node):
-        new_entity = self._make_entity(node, entity=entity)
-
-        new_entity.pop('label')  # leave existing label
-
-        # check for matching IPs
-        entity_ips = dict(entity.ip_addresses)
-        if new_entity['ip_addresses'] == entity_ips:
-            new_entity.pop('ip_addresses')
-
-        if entity.extra.get('ck_node_id') == node['id']:
-            new_entity.pop('metadata')
-
-        if new_entity.get('agent_id') and entity.agent_id == new_entity.get('agent_id'):
-            new_entity.pop('agent_id')
-
-        if new_entity:
-            log.debug('Updated fields on entity %s:' % (entity.id))
-            log.debug(pprint.pformat(new_entity))
-            if self.auto or utils.get_input('Update entity?', options=['y', 'n'], default='y') == 'y':
-                entity = self.rackspace.update_entity(entity, new_entity)
-                if new_entity.get('agent_id'):
-                    self.agent_ids[entity.id] = new_entity.get('agent_id')
-                return 'Updated', entity
-        else:
-            return 'Matched', entity
-
-        return False, None
-
-    def _create_entity_from_node(self, node):
-        # if we get this far, we need to create an entity
-        new_entity = self._make_entity(node)
-        new_entity['extra'] = new_entity.pop('metadata')  # feels bad
-        log.debug('New Entity:')
-        log.debug(pprint.pformat(new_entity))
-        if self.auto or utils.get_input('Create new entity?', options=['y', 'n'], default='y') == 'y':
-            entity = self.rackspace.create_entity(**new_entity)
-            self.agent_ids[entity.id] = entity.agent_id
-            return 'Created', entity
-
-        return False, None
-
-    def _get_or_create_entity_from_node(self, node):
+    def _populate_entity(self):
         """
-        There are 2 ways for us to match entities to CK nodes:
-        1) entity metadata - nodes created via this script will put the ck node id in the entity metadata
-        2) ip address - we will return the first entity with a matching public ip address (Which will catch entities
-                        that have been pre-created other ways. (For example: rackspace cloud nodes))
-
-        If neither of these methods work, we will create a new entity.
+        returns base entity dict
         """
-        for entity in self.entities:
+        self._entity_cache['label'] = self.ck_node.label
+        self._entity_cache['ip_addresses'] = self.ck_node.ip_addresses
+        self._entity_cache['agent_id'] = self.ck_node.id  # guraranteed to be unique
+        self._entity_cache['metadata'] = {'ck_node_id': self.ck_node.id}
 
-            match = None
-            # check in the entity metadata for ck_node_id first
-            node_id = entity.extra.get('ck_node_id')
-            if node_id == node.get('id'):
-                match = entity
+    def _find_entity(self):
+        """
+        finds a matching rs node for this entity (if one exists)
+        """
+        for e in self.migrator.get_rs_entities():
+            # check in the entity metadata for ck_node_id
+            if self.ck_node.id == e.extra.get('ck_node_id'):
+                return e
 
-            # we attempt to match entities based on public IP
-            entity_ips = [ip for _, ip in entity.ip_addresses]
-            for ip in node.get('public_ips', []):
-                if ip in entity_ips:
-                    match = entity
+            # find any matching *public* ips
+            public_entity_ips = [ip for label, ip in e.ip_addresses if 'public' in label]
+            public_node_ips = [ip for label, ip in self.ck_node.ip_addresses.items() if 'public' in label]
+            for ip in public_node_ips:
+                if ip in public_entity_ips:
+                    return e
+        return None
 
-            if match:
-                return self._update_entity_from_node(entity, node)
+    def save(self, commit=True):
+        """
+        Calculate the difference between reality and the entity upstream. Create/Update
+        entities as needed.
 
-        # We weren't able to find a matching entity, so we need to create a new one
-        log.debug('Creating new entity for node: %s' % utils.node_to_str(node))
-        return self._create_entity_from_node(node)
+        @param rs_api obj - instance of the monitoring libcloud driver, if it's not given
+                            the diff is still calculaed and returned but no changes are saved
+        """
+        # if we never found a matching entity, we can just create it
+        if not self.rs_entity:
+            if commit:
+                e = copy(self._entity_cache)
+                e['extra'] = e.pop('metadata')
+                self.rs_entity = self.rs_api.create_entity(**e)
+            return 'Created', self._entity_cache
 
-    def sync_entities(self):
+        # check for different fields on the upstream object
+        e = copy(self._entity_cache)
+
+        e.pop('label')  # don't actually update label
+
+        entity_ips = dict(self.rs_entity.ip_addresses)
+        if e['ip_addresses'] == entity_ips:
+            e.pop('ip_addresses')
+
+        # leave the rest of the metadata alone
+        if e['metadata'].get('ck_node_id') == self.rs_entity.extra.get('ck_node_id'):
+            e.pop('metadata')
+
+        if e.get('agent_id') == self.rs_entity.agent_id:
+            e.pop('agent_id')
+
+        if e:
+            if commit:
+                self.rs_entity = self.rs_api.update_entity(self.rs_entity, e)
+            return 'Updated', e
+
+        return 'Unchanged', None
+
+
+class EntityMigrator(object):
+
+    def __init__(self, migrator, logger=None):
+        self.logger = logger
+        if not self.logger:
+            self.logger = logging.getLogger('maas_migration')
+
+        self.migrator = migrator
+
+        self.ck_api = self.migrator.ck_api
+        self.rs_api = self.migrator.rs_api
+
+        self.dry_run = self.migrator.options.dry_run
+        self.auto = self.migrator.options.auto
+
+    def migrate(self):
         """
         adds or updates entities in rs from nodes in ck
         """
-        log.info('\nEntities')
-        log.info('------\n')
+        self.logger.info('\nEntities')
+        self.logger.info('------\n')
 
-        pairs = []
-        for node in self.nodes:
-            log.info('Cloudkick Node %s' % utils.node_to_str(node))
-            msg, entity = self._get_or_create_entity_from_node(node)
-            if msg:
-                log.info('%s Rackspace Entity %s\n' % (msg, utils.entity_to_str(entity)))
-                pairs.append((node, entity))
+        for ck_node in self.ck_api.list_nodes():
+            self.logger.info('Migrating Cloudkick Node - %s' % ck_node)
+
+            # set up obj and see if there are any changes necessary
+            entity = MigratedEntity(self.migrator, ck_node)
+            action, result = entity.save(commit=False)
+
+            # print action and prompt for commit
+            if action == 'Created':
+                self.logger.info('Creating new entity:\n%s' % (pprint.pformat(result)))
+                if self.auto or utils.get_input('Create this entity?', options=['y', 'n'], default='y') == 'y':
+                    entity.save()
+                    self.migrator.migrated_entities.append(entity)
+            elif action == 'Updated':
+                self.logger.info('Updating entity %s - changes:\n%s' % (entity.rs_entity.id, pprint.pformat(result)))
+                if self.auto or utils.get_input('Update this entity?', options=['y', 'n'], default='y') == 'y':
+                    entity.save()
+                    self.migrator.migrated_entities.append(entity)
             else:
-                log.info('Skipped')
+                self.logger.info('No changes needed for entity %s' % (entity.rs_entity.id))
+                self.migrator.migrated_entities.append(entity)
 
-        return pairs
+            self.logger.info('')

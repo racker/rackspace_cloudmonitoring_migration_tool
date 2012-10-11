@@ -1,232 +1,269 @@
 import pprint
-import re
-import sys
 import utils
 import logging
-log = logging.getLogger('maas_migration')
 
-_check_type_map = {
-    'HTTP': 'remote.http',
-    'HTTPS': 'remote.http',
-    'PING': 'remote.ping',
-    'SSH': 'remote.ssh',
-    'DNS': 'remote.dns',
-    'TCP': 'remote.tcp',
-    'IO': 'agent.disk',
-    'CPU': 'agent.cpu',
-    'MEMORY': 'agent.memory',
-    #'PLUGIN': 'agent.plugin',
-    'BANDWIDTH': 'agent.network',
-}
+from copy import copy
+
+DEFAULT_MONITORING_ZONES = ['mzord', 'mzdfw']
 
 
-class Checks(object):
+class UnsupportedCheckType(Exception):
+    pass
 
-    def __init__(self, cloudkick, rackspace, entity_map, monitoring_zones=None, auto=False, dry_run=False):
-        self.cloudkick = cloudkick
-        self.rackspace = rackspace
-        self.entity_map = entity_map
 
-        self.dry_run = dry_run
-        self.auto = auto
+class MigratedCheck(object):
+    """
+    CK Check --> RS Check
 
-        self.entities = rackspace.list_entities()
-        self.nodes = cloudkick.nodes.read()['items']
-        self.monitors = cloudkick.monitors.read()['items']
+    To implement a new check - add the CK type -> RS type entry to
+    _check_type_map.
 
-        # monitoring zones - generate a list of all available mzids and a human-readable label
-        self.available_mzs = {}
-        for mz in self.rackspace.list_monitoring_zones():
-            self.available_mzs[mz.id] = '%s - %s %s' % (mz.id, mz.country_code, mz.label)
+    Optionally, implement a private function on this class that is the same name
+    of the RS check type and do any check-specific stuff there. (see _remote_http())
+    """
 
-        # set (and validate) default monitoring zones if specified in the config
-        self.mzs = monitoring_zones if monitoring_zones else []
-        if self.mzs:
-            if not all(mz in self.available_mzs.keys() for mz in self.mzs):
-                log.error('Invalid monitoring zone config, ignoring...')
-                self.mzs = []
-        else:
-            self.mzs = self._get_mzs()
+    _check_type_map = {
+        'HTTP': 'remote.http',
+        'HTTPS': 'remote.http',
+        'PING': 'remote.ping',
+        'SSH': 'remote.ssh',
+        'DNS': 'remote.dns',
+        'TCP': 'remote.tcp',
+        'IO': 'agent.disk',
+        'CPU': 'agent.cpu',
+        'MEMORY': 'agent.memory',
+        'PLUGIN': 'agent.plugin',
+        'BANDWIDTH': 'agent.network',
+    }
 
-    def _get_mzs(self, use_default=True):
-        """
-        if we don't have a default set of mzs yet, this prompts the user to choose
-        """
-        if self.mzs and use_default:
-            return self.mzs
+    ck_api = None
+    rs_api = None
 
-        # Validator for mz selection input
-        def _validate_mzs(selection):
-            mzs = re.findall(r'\w+', selection)
-            valid = all([mz in self.available_mzs for mz in mzs])
-            if mzs and valid:
-                return True, mzs
-            return False, 'Invalid Input'
+    ck_node = None
+    rs_entity = None
 
-        # Print readable mzs
-        sys.stderr.write('Available Monitoring zones:\n')
-        for mz in self.available_mzs.values():
-            sys.stderr.write('%s\n' % (mz))
+    ck_check = None
+    rs_check = None
 
-        # Collect input
-        self.mzs = utils.get_input(msg='Choose monitoring zones (ex. "mzord,mzdfw")',
-                                   null=False,
-                                   validator=_validate_mzs)
-        return self.mzs
+    rs_notification_plan = None
 
-    def _choose_ip(self, entity):
-        """
-        Return the primary ipv4 addr always, it's how Cloudkick works
-        """
-        for addr in entity.ip_addresses:
-            if 'public0_v4' == addr[0]:
-                return addr[1]
+    migrated_alarms = []
 
-    def _populate_check(self, node, entity, check, monitor, new_check):
+    _check_cache = None
+
+    def __init__(self, migrated_entity, ck_check, monitoring_zones=None, rs_checks_cache=None):
+
+        if ck_check.type not in self._check_type_map:
+            raise UnsupportedCheckType('Check type %s is not supported' % (ck_check.type))
+
+        self.migrated_entity = migrated_entity
+
+        self.ck_api = migrated_entity.ck_api
+        self.rs_api = migrated_entity.rs_api
+        self.ck_node = migrated_entity.ck_node
+        self.rs_entity = migrated_entity.rs_entity
+
+        self.ck_check = ck_check
+        self.monitoring_zones = monitoring_zones or DEFAULT_MONITORING_ZONES
+
+        self._check_cache = {}
+        self._populate_check()
+
+        self.rs_check = self._find_check()
+
+        self.alarms = []
+
+        self._test_responses_cache = None
+
+    def __str__(self):
+        return pprint.pformat(self._check_cache)
+
+    @property
+    def type(self):
+        return self._check_cache['type']
+
+    def _populate_check(self):
+
+        # Basic check data
+        self._check_cache['label'] = self.ck_check.label
+        self._check_cache['type'] = self._check_type_map[self.ck_check.type]
+        self._check_cache['disabled'] = self.ck_check.disabled
+        self._check_cache['metadata'] = {'ck_check_id': self.ck_check.id}
 
         # remote checks need to choose monitoring zones and a target IP
-        if 'remote' in new_check['type']:
+        if 'remote' in self.type:
             # set up monitoring zones for the check
-            new_check['monitoring_zones'] = self._get_mzs()
-            # choose target
-            new_check['target_hostname'] = self._choose_ip(entity)
+            self._check_cache['monitoring_zones'] = self.monitoring_zones
+            # target
+            self._check_cache['target_hostname'] = self.ck_check.target_hostname
 
-        if new_check['type'] == 'remote.http':
-            ck_details = check['details']
+        # do check specific stuff
+        f = getattr(self, '_%s' % (self.type.replace('.', '_')), None)
+        if f:
+            f()
 
-            rs_details = {}
+    def _find_check(self):
 
-            for attr in ['url', 'method', 'auth_user', 'auth_password', 'body']:
-                if attr in ck_details:
-                    rs_details[attr] = ck_details[attr]
+        for c in self.migrated_entity.get_rs_checks():
+            if c.extra.get('ck_check_id') == self.ck_check.id:
+                return c
+        return None
 
-            if not rs_details.get('method'):
-                rs_details['method'] = 'GET'
+    def get_test_results(self):
+        valid, msg = self.test()
+        return valid, msg, self._test_responses_cache
 
-            if check['type']['description'] == 'HTTPS':
-                rs_details['ssl'] = True
-
-            new_check['details'] = rs_details
-
-        elif new_check['type'] == 'remote.ssh':
-            new_check['details'] = {}
-            new_check['details']['port'] = check['details']['port']
-
-        elif new_check['type'] == 'remote.tcp':
-            new_check['details'] = {}
-            new_check['details']['port'] = check['details']['port']
-
-            if 'use_ssl' in check['details']:
-                new_check['details']['ssl'] = check['details']['use_ssl']
-
-        elif new_check['type'] == 'remote.dns':
-            new_check['details'] = {}
-            new_check['details']['query'] = check['details']['dns_query']
-            new_check['details']['record_type'] = check['details']['record_type']
-
-    def _make_check(self, node, entity, check, monitor):
-        # Basic check data
-        new_check = {}
-        new_check['label'] = '%s:%s' % (monitor['name'], check['type']['description'])
-        new_check['type'] = _check_type_map[check['type']['description']]
-        new_check['disabled'] = not check['is_enabled']
-        new_check['metadata'] = {'ck_check_id': check['id']}
-
-        # do check-specific stuff
-        self._populate_check(node, entity, check, monitor, new_check)
-
-        log.debug('Check:\n%s' % pprint.pformat(new_check))
-
-        return new_check
-
-    def _test_check(self, entity, new_check):
+    def test(self):
         try:
-            responses = self.rackspace.test_check(entity, **new_check)
+            if self._test_responses_cache:
+                responses = self._test_responses_cache
+            else:
+                responses = self.rs_api.test_check(self.rs_entity, **self._check_cache)
+            self._test_responses_cache = responses
         except Exception as e:
-            log.error('Check test failed - Exception:\n%s' % e)
-            return False
+            msg = 'Check test failed - Exception:\n%s' % (e)
+            return False, msg
 
-        # if the check test failed we want to log.info it, otherwise it's safe to ignore and we log.debug
         valid = False not in [r['available'] for r in responses]
-        log_fun = log.debug if valid else log.info
-        log_fun('Check test %s!' % ('passed' if valid else 'failed'))
-        log_fun('Results:\n%s' % (pprint.pformat(responses)))
-        return valid
+        msg = ''
+        msg += 'Check test %s!\n' % ('passed' if valid else 'failed')
+        msg += 'Results:\n%s' % (pprint.pformat(responses))
+        return valid, msg
 
-    def _get_or_create_check(self, node, entity, monitor, ck_check, rs_check=None):
+    def save(self, commit=True):
+        if not self.rs_check:
+            if commit:
+                self.rs_check = self.rs_api.create_check(self.rs_entity, **self._check_cache)
+            return 'Created', self._check_cache
 
-        new_check = self._make_check(node, entity, ck_check, monitor)
+        c = copy(self._check_cache)
 
-        if rs_check and \
-           new_check.get('details', {}) == rs_check.details and \
-           new_check.get('target_hostname', None) == getattr(rs_check, 'target_hostname', None) and \
-           new_check['type'] == rs_check.type and \
-           new_check.get('monitoring_zones', None) == getattr(rs_check, 'monitoring_zones', None):
-            return rs_check, 'Matched'
+        if c['metadata'].get('ck_node_id') == self.rs_check.extra.get('ck_node_id'):
+            c.pop('metadata')
 
-        success = self._test_check(entity, new_check)
-        if not success:
-            if utils.get_input('Check test failed - save anyway?', options=['y', 'n'], default='n') != 'y':
-                return None, 'Skipped'
+        for key in ['details', 'label', 'monitoring_zones', 'disabled', 'target_hostname', 'type']:
+            if c.get(key) == getattr(self.rs_check, key, None):
+                try:
+                    c.pop(key)
+                except KeyError:
+                    pass
+
+        if c:
+            if commit:
+                self.rs_check = self.rs_api.update_check(self.rs_check, c)
+            return 'Updated', c
+
+        return 'Unchanged', None
+
+    ########################
+    # Check Specific Stuff #
+    ########################
+    def _remote_http(self):
+        ck_details = self.ck_check.details
+        rs_details = {}
+
+        for attr in ['url', 'method', 'auth_user', 'auth_password', 'body']:
+            if attr in ck_details:
+                rs_details[attr] = ck_details[attr]
+
+        if not rs_details.get('method'):
+            rs_details['method'] = 'GET'
+
+        if self.ck_check.type == 'HTTPS':
+            rs_details['ssl'] = True
+
+        self._check_cache['details'] = rs_details
+
+    def _remote_ssh(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['port'] = self.ck_check.details['port']
+
+    def _remote_tcp(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['port'] = self.ck_check.details['port']
+        if 'use_ssl' in self.ck_check.details:
+            self._check_cache['details']['ssl'] = self.ck_check.details['use_ssl']
+
+    def _remote_dns(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['query'] = self.ck_check.details['dns_query']
+        self._check_cache['details']['record_type'] = self.ck_check.details['record_type']
+
+    def _agent_plugin(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['file'] = self.ck_check.details['check']
+        args = self.ck_check.details.get('args')
+        if args:
+            self._check_cache['details']['args'] = args.split(' ')
+
+
+class CheckMigrator(object):
+
+    def __init__(self, migrator, logger=None):
+        self.logger = logger
+        if not self.logger:
+            self.logger = logging.getLogger('maas_migration')
+
+        self.migrator = migrator
+        self.ck_api = self.migrator.ck_api
+        self.rs_api = self.migrator.rs_api
+
+        self.monitoring_zones = self.migrator.config.get('monitoring_zones')
+
+        self.no_test = self.migrator.options.no_test
+        self.dry_run = self.migrator.options.dry_run
+        self.auto = self.migrator.options.auto
+
+    def _test(self, check):
+        if self.no_test:
+            return True
+
+        result, msg = check.test()
+
+        if not result:
+            self.logger.error(msg)
+            if utils.get_input('Ignore this check?', options=['y', 'n'], default='y') == 'y':
+                return False
             else:
-                success = True
+                self.logger.debug(msg)
+        return True
 
-        if success and self.auto or utils.get_input('Save this check?', options=['y', 'n'], default='y') == 'y':
-            if rs_check:
-                msg = 'Updated'
-                new_check = self.rackspace.update_check(rs_check, new_check)
-            else:
-                msg = 'Created'
-                new_check = self.rackspace.create_check(entity, **new_check)
-            return new_check, msg
-        return None, 'Skipped'
+    def migrate(self):
+        self.logger.info('\nChecks')
+        self.logger.info('------\n')
 
-    def sync_checks(self):
-        log.info('\nChecks')
-        log.info('------\n')
+        for migrated_entity in self.migrator.migrated_entities:
 
-        rv = []
-        for node, entity in self.entity_map:
+            self.logger.info('Migrating checks for node %s\n' % migrated_entity.ck_node)
 
-            log.info('Syncing checks for node %s\n' % utils.node_to_str(node))
+            rs_checks = self.rs_api.list_checks(migrated_entity.rs_entity)
+            for ck_check in self.ck_api.list_checks(migrated_entity.ck_node):
 
-            # CK checks
-            ck_checks = self.cloudkick.checks.read(node_ids=node['id'])
-            if ck_checks:
-                ck_checks = ck_checks.get('items')
-            else:
-                log.info('No checks found for node %s' % utils.node_to_str(node))
-                continue
+                self.logger.info('Migrating Check %s' % (ck_check))
 
-            for ck_check in ck_checks:
-
-                # get monitor that owns this check
-                monitor = None
-                for m in self.monitors:
-                    if m['id'] == ck_check['monitor_id']:
-                        monitor = m
-                        break
-
-                log.info('Cloudkick Check %s (%s:%s)' % (ck_check['id'], monitor.get('name'), ck_check['type']['description']))
-
-                # is this a portable check type?
-                check_type = ck_check['type']['description']
-                if check_type not in _check_type_map.keys():
-                    log.info('Check type "%s" not supported\n' % check_type)
+                try:
+                    check = MigratedCheck(migrated_entity, ck_check, monitoring_zones=self.monitoring_zones, rs_checks_cache=rs_checks)
+                except UnsupportedCheckType as e:
+                    self.logger.info(e)
+                    self.logger.info('')
                     continue
 
-                # find previously migrated checks
-                rs_check = None
-                for c in self.rackspace.list_checks(entity):
-                    if c.extra.get('ck_check_id') == ck_check['id']:
-                        rs_check = c
-                        break
-
-                check, msg = self._get_or_create_check(node, entity, monitor, ck_check, rs_check)
-                if check:
-                    log.info('%s Rackspace Check %s' % (msg, check.id))
-                    rv.append((node, entity, ck_check, check, monitor))
+                action, result = check.save(commit=False)
+                if action == 'Created':
+                    if self._test(check):
+                        self.logger.info('Creating new check:\n%s' % (pprint.pformat(result)))
+                        if self.auto or utils.get_input('Create this check?', options=['y', 'n'], default='y') == 'y':
+                            check.save()
+                            migrated_entity.migrated_checks.append(check)
+                elif action == 'Updated':
+                    if self._test(check):
+                        self.logger.info('Updating check %s - changes:\n%s' % (check.rs_check.id, pprint.pformat(result)))
+                        if self.auto or utils.get_input('Update this check?', options=['y', 'n'], default='y') == 'y':
+                            check.save()
+                            migrated_entity.migrated_checks.append(check)
                 else:
-                    log.info('%s' % msg)
-                log.info('')
-        return rv
+                    self.logger.info('No changes needed for check %s' % (check.rs_check.id))
+                    migrated_entity.migrated_checks.append(check)
+
+                self.logger.info('')
+            self.logger.info('')

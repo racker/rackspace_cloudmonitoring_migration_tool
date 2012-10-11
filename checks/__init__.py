@@ -1,3 +1,3 @@
-from checks import Checks
+from checks import CheckMigrator, MigratedCheck
 
-__all__ = ["Checks"]
+__all__ = ["CheckMigrator", "MigratedCheck"]

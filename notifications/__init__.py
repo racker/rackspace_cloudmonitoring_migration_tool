@@ -1,3 +1,3 @@
-from notifications import Notifications
+from notifications import NotificationMigrator
 
-__all__ = ["Notifications"]
+__all__ = ["NotificationMigrator"]

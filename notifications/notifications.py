@@ -1,110 +1,148 @@
-from collections import defaultdict
 import pprint
 import utils
 import logging
-log = logging.getLogger('maas_migration')
+from collections import defaultdict
 
 
-class Notifications(object):
+class NotificationMigrator(object):
 
-    def __init__(self, cloudkick, rackspace, monitors, auto=False, dry_run=False):
-        self.cloudkick = cloudkick
-        self.rackspace = rackspace
-        self.monitors = monitors
+    def __init__(self, migrator, logger=None):
+        self.logger = logger
+        if not self.logger:
+            self.logger = logging.getLogger('maas_migration')
 
-        self.dry_run = dry_run
-        self.auto = auto
+        self.migrator = migrator
+        self.ck_api = self.migrator.ck_api
+        self.rs_api = self.migrator.rs_api
 
-        self.plans = rackspace.list_notification_plans()
-        self.notifications = dict((n.id, n) for n in rackspace.list_notifications())
+        self.dry_run = self.migrator.options.dry_run
+        self.auto = self.migrator.options.auto
 
-    def _get_or_create_notification(self, new_notification):
+        self.rs_plans = self.rs_api.list_notification_plans()
+        self.rs_notifications = dict((n.id, n) for n in self.rs_api.list_notifications())
+
+        self.migrated_notifications = {}
+        self.monitor_to_notification_map = defaultdict(set)
+
+    def _get_or_create_notification(self, ck_notification):
+        """
+        Actually finds/creates a new rackspace notification
+        """
+
+        if ck_notification.address in self.migrated_notifications:
+            return self.migrated_notifications[ck_notification.address]
+
+        new_notification = {}
+        new_notification['label'] = ck_notification.name
+        new_notification['type'] = ck_notification.type
+        new_notification['details'] = {}
+        new_notification['details']['address'] = ck_notification.address
 
         # find existing notifications
-        for notification_id, notification in self.notifications.items():
-            if notification.type == new_notification['type'] and \
-               notification.details == new_notification['details']:
-                return notification, False
+        created = False
+        notification = None
+        for notification_id, rs_notification in self.rs_notifications.items():
+            if rs_notification.type == new_notification['type'] and rs_notification.details == new_notification['details']:
+                notification = rs_notification
+                break
 
         # create it if it doesn't exist
-        log.info('Notification: %s' % new_notification['details']['address'])
-        if self.auto or utils.get_input('Create notification?', options=['y', 'n'], default='y') == 'y':
-            notification = self.rackspace.create_notification(**new_notification)
-            self.notifications[notification.id] = notification
-            return notification, True
+        if not notification:
+            if self.auto or utils.get_input('Create notification?', options=['y', 'n'], default='y') == 'y':
+                rs_notification = self.rs_api.create_notification(**new_notification)
+                notification = rs_notification
+                created = True
 
-        None, False
+        self.logger.info('%s Notification: %s (%s)' % ('Created' if created else 'Found', notification.details['address'], notification.id))
+        return notification
 
-    def _generate_cloudkick_notification_plans(self):
+    def _generate_notifications(self, ck_monitor):
+        """
+        Iterates over all notifications in a monitor, finds/creates them, and adds them to a map for later use
+        """
+        for ck_notification in ck_monitor.get_notifications():
+            rs_notificaiton = self._get_or_create_notification(ck_notification)
+            if rs_notificaiton:
+                # We only need 1 notification per email address
+                self.migrated_notifications[ck_notification.address] = rs_notificaiton
 
-        # look up notifications attached to cloudkick monitors
-        ck = defaultdict(set)
-        for monitor in self.monitors:
-            ck_notifications = monitor.get('notification_receivers', [])
-            for ck_notification in ck_notifications:
-                if 'email_address' in ck_notification['details']:
-                    ck[(monitor['id'], monitor['name'])].add((ck_notification['name'], 'email', ck_notification['details']['email_address']))
-                else:
-                    pass
+                # Map this notification to the monitor
+                found = False
+                for notificaion in self.monitor_to_notification_map[ck_monitor.id]:
+                    if notificaion.details['address'] == rs_notificaiton.details['address']:
+                        found = True
+                        break
+                if not found:
+                    self.monitor_to_notification_map[ck_monitor.id].add(rs_notificaiton)
 
-        # create any missing notifications
-        created_notifications = {}
-        for monitor, notifications in ck.items():
-            created_notifications[monitor] = []
-            new_notification = {}
-            for name, notification_type, details in notifications:
-                new_notification['label'] = name
-                new_notification['type'] = notification_type
-                new_notification['details'] = {}
-                new_notification['details']['address'] = details
-                notification, created = self._get_or_create_notification(new_notification)
-                if notification:
-                    log.debug('%s notification: %s' % ('Created' if created else 'Found', new_notification['details']['address']))
-                    created_notifications[monitor].append(notification)
-                else:
-                    log.debug('Skipped notification: %s' % new_notification['details']['address'])
+    def _generate_plan(self, ck_monitor):
+        """
+        Generates a plan for each monitor
+        """
 
-        # create a plan per monitor
-        plans = {}
+        notifications = self.monitor_to_notification_map.get(ck_monitor.id, [])
+        new_plan = {}
+        new_plan['label'] = '%s:%s' % (ck_monitor.name, ck_monitor.id)
+        new_plan['critical_state'] = [n.id for n in notifications]
+        new_plan['warning_state'] = [n.id for n in notifications]
+        new_plan['ok_state'] = [n.id for n in notifications]
 
-        # find any existing plans for monitor.
-        for monitor, notifications in created_notifications.items():
-            old_plan = None
-            for plan in self.plans:
-                if plan.label == '%s:%s' % (monitor[1], monitor[0]):
-                    old_plan = plan
-                    break
+        # find already created plan
+        action = ''
+        plan = None
+        for p in self.rs_plans:
+            if p.label == '%s:%s' % (ck_monitor.name, ck_monitor.id):
+                plan = p
+                break
 
-            new_plan = {}
-            new_plan['label'] = '%s:%s' % (monitor[1], monitor[0])
-            new_plan['critical_state'] = [n.id for n in notifications]
-            new_plan['warning_state'] = [n.id for n in notifications]
-            new_plan['ok_state'] = [n.id for n in notifications]
-
-            plan = None
-            if old_plan:
-                if old_plan.critical_state == new_plan['critical_state'] and \
-                   old_plan.warning_state == new_plan['warning_state'] and \
-                   old_plan.ok_state == new_plan['ok_state']:
-                    plan = old_plan
-                else:
-                    log.info('Plan\n%s' % pprint.pformat(new_plan))
-                    if self.auto or utils.get_input('Update plan?', options=['y', 'n'], default='y') == 'y':
-                        plan = self.rackspace.update_notification_plan(old_plan, new_plan)
+        if plan:
+            if plan.critical_state == new_plan['critical_state'] and \
+               plan.warning_state == new_plan['warning_state'] and \
+               plan.ok_state == new_plan['ok_state']:
+                action = 'Found'
             else:
-                log.info('Plan\n%s' % pprint.pformat(new_plan))
-                if self.auto or utils.get_input('Create plan?', options=['y', 'n'], default='y') == 'y':
-                    plan = self.rackspace.create_notification_plan(**new_plan)
+                plan = self.rs_api.update_notification_plan(plan, new_plan)
+                action = 'Updated'
+        else:
+            plan = self.rs_api.create_notification_plan(**new_plan)
+            action = 'Created'
 
+        self.logger.info('%s Plan %s:\n%s' % (action, plan.id, pprint.pformat(new_plan)))
+        return plan
+
+    def _monitors(self):
+        monitors = {}
+        for migrated_entity in self.migrator.migrated_entities:
+            for migrated_check in migrated_entity.migrated_checks:
+                monitors[migrated_check.ck_check.monitor.id] = migrated_check.ck_check.monitor
+        return monitors.values()
+
+    def _apply_plan(self, monitor, plan):
+        """
+        Set this plan as an attribute on all relevant migrate_check instances
+        """
+        for entity in self.migrator.migrated_entities:
+            for check in entity.migrated_checks:
+                if check.ck_check.monitor.id == monitor.id:
+                    check.rs_notification_plan = plan
+
+    def migrate(self):
+        """
+        1. find monitors with actually migrated checks
+        2. find/create relevant notification endpoints
+        3. find/create a plan with relevant endpoints for each monitor
+        4. set plan as an attribute on each check for later use
+
+        The result of this is a single notification endpoint per unique
+        email address and 1 plan per monitor. (In Cloudkick, a monitor is
+        a parent container for many checks)
+        """
+        self.logger.info('\nNotifications')
+        self.logger.info('------\n')
+
+        for monitor in self._monitors():
+            self._generate_notifications(monitor)
+            self.logger.info('')
+            plan = self._generate_plan(monitor)
             if plan:
-                plans[monitor[0]] = plan
-
-        return plans
-
-    def sync_notifications(self):
-        log.info('\nNotifications')
-        log.info('------\n')
-
-        plans = self._generate_cloudkick_notification_plans()
-
-        return plans
+                self._apply_plan(monitor, plan)
