@@ -109,7 +109,7 @@ class AlarmMigrator(object):
         self.auto = self.migrator.options.auto
         self.no_test = self.migrator.options.no_test
 
-        self.consistency_level = self.migrator.config.get('alarm_consistency_level', 'ALL')
+        self.consistency_level = self.migrator.config.get('alarm_consistency_level', 'QUORUM')
 
     def migrate(self):
         self.logger.info('\nAlarms')

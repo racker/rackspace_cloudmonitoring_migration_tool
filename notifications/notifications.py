@@ -1,5 +1,4 @@
 import pprint
-import utils
 import logging
 from collections import defaultdict
 

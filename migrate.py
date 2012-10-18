@@ -129,7 +129,6 @@ if __name__ == "__main__":
     parser.add_option("-c", "--config", dest="config", help="path to config file", metavar="FILE")
     parser.add_option("--dry-run", dest="dry_run", help="don't commit anything")
     parser.add_option("--ca-certs-path", action="store", dest="ca_certs_path", help="path to cacert bundle for ssl verification", metavar="FILE")
-    parser.add_option("-d", "--debug", action="store_true", dest="debug", default=False, help="debug mode (more logging, drop to debugger on exception")
     parser.add_option("-o", "--output", dest="output", help="path to logfile", metavar="FILE")
     parser.add_option("-a", "--auto", action="store_true", dest="auto", default=False, help="don't prompt for anything")
     parser.add_option("--no-test", action="store_true", dest="no_test", default=False, help="Do *NOT* test checks and alarms before they are created")
