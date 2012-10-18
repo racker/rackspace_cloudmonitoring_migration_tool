@@ -98,7 +98,7 @@ def _migrate(args, options, config, rs, ck):
 def _setup(options, args):
 
     # setup, read config, init APIs
-    utils.setup_logging('DEBUG')
+    utils.setup_logging('DEBUG', output=options.output)
 
     if args[0] == 'test':
         run_tests('%s/tests' % SCRIPT_DIR)

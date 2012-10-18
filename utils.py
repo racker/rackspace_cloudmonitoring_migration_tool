@@ -7,15 +7,15 @@ import logging
 log = logging.getLogger('maas_migration')
 
 
-def setup_logging(loglevel, outfile=None):
+def setup_logging(loglevel, output=None):
     """
     configure logging
     """
     logging.basicConfig(format='%(message)s', level=loglevel)
 
     # optionally log to a file
-    if outfile:
-        hdlr = logging.FileHandler(outfile)
+    if output:
+        hdlr = logging.FileHandler(output)
         log.addHandler(hdlr)
 
 
