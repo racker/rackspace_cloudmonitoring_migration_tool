@@ -4,7 +4,7 @@ import logging
 
 from copy import copy
 
-DEFAULT_MONITORING_ZONES = ['mzord', 'mzdfw']
+DEFAULT_MONITORING_ZONES = ['mzord', 'mzdfw', 'mzlon']
 
 
 class UnsupportedCheckType(Exception):
