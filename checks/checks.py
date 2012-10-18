@@ -109,26 +109,20 @@ class MigratedCheck(object):
                 return c
         return None
 
-    def get_test_results(self):
-        valid, msg = self.test()
-        return valid, msg, self._test_responses_cache
-
     def test(self):
         try:
             if self._test_responses_cache:
                 responses = self._test_responses_cache
             else:
                 responses = self.rs_api.test_check(self.rs_entity, **self._check_cache)
-            self._test_responses_cache = responses
+                self._test_responses_cache = responses
         except Exception as e:
             msg = 'Check test failed - Exception:\n%s' % (e)
-            return False, msg
+            return False, msg, self._test_responses_cache
 
         valid = False not in [r['available'] for r in responses]
-        msg = ''
-        msg += 'Check test %s!\n' % ('passed' if valid else 'failed')
-        msg += 'Results:\n%s' % (pprint.pformat(responses))
-        return valid, msg
+        msg = 'Check test %s!\n' % ('passed' if valid else 'failed')
+        return valid, msg, responses
 
     def save(self, commit=True):
         if not self.rs_check:
@@ -218,14 +212,13 @@ class CheckMigrator(object):
         if self.no_test:
             return True
 
-        result, msg = check.test()
+        result, msg, responses = check.test()
 
+        self.logger.info(msg)
+        self.logger.debug('Check Test Result:\n%s' % pprint.pformat(responses))
         if not result:
-            self.logger.error(msg)
             if utils.get_input('Ignore this check?', options=['y', 'n'], default='y') == 'y':
                 return False
-            else:
-                self.logger.debug(msg)
         return True
 
     def migrate(self):

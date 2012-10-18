@@ -62,7 +62,7 @@ class MigratedEntity(object):
         """
         self._entity_cache['label'] = self.ck_node.label
         self._entity_cache['ip_addresses'] = self.ck_node.ip_addresses
-        self._entity_cache['agent_id'] = self.ck_node.id  # guraranteed to be unique
+        self._entity_cache['agent_id'] = self.ck_node.label
         self._entity_cache['metadata'] = {'ck_node_id': self.ck_node.id}
 
     def _find_entity(self):
@@ -155,13 +155,21 @@ class EntityMigrator(object):
             if action == 'Created':
                 self.logger.info('Creating new entity:\n%s' % (pprint.pformat(result)))
                 if self.auto or utils.get_input('Create this entity?', options=['y', 'n'], default='y') == 'y':
-                    entity.save()
-                    self.migrator.migrated_entities.append(entity)
+                    try:
+                        entity.save()
+                    except Exception as e:
+                        self.logger.error('Exception creating entity:\n%s' % e)
+                    else:
+                        self.migrator.migrated_entities.append(entity)
             elif action == 'Updated':
                 self.logger.info('Updating entity %s - changes:\n%s' % (entity.rs_entity.id, pprint.pformat(result)))
                 if self.auto or utils.get_input('Update this entity?', options=['y', 'n'], default='y') == 'y':
-                    entity.save()
-                    self.migrator.migrated_entities.append(entity)
+                    try:
+                        entity.save()
+                    except Exception as e:
+                        self.logger.error('Exception updating entity:\n%s' % e)
+                    else:
+                        self.migrator.migrated_entities.append(entity)
             else:
                 self.logger.info('No changes needed for entity %s' % (entity.rs_entity.id))
                 self.migrator.migrated_entities.append(entity)

@@ -48,10 +48,9 @@ class NotificationMigrator(object):
 
         # create it if it doesn't exist
         if not notification:
-            if self.auto or utils.get_input('Create notification?', options=['y', 'n'], default='y') == 'y':
-                rs_notification = self.rs_api.create_notification(**new_notification)
-                notification = rs_notification
-                created = True
+            rs_notification = self.rs_api.create_notification(**new_notification)
+            notification = rs_notification
+            created = True
 
         self.logger.info('%s Notification: %s (%s)' % ('Created' if created else 'Found', notification.details['address'], notification.id))
         return notification

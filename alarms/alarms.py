@@ -34,25 +34,16 @@ class MigratedAlarm(object):
 
     def _find_alarm(self):
         for alarm in self.migrated_check.migrated_entity.get_rs_alarms():
-
             if alarm.check_id != self._alarm_cache['check_id']:
                 continue
-
-            if alarm.notification_plan_id != self._alarm_cache['notification_plan_id']:
-                continue
-
-            if alarm.criteria != self._alarm_cache['criteria']:
-                continue
-
-            if alarm.extra != self._alarm_cache['metadata']:
-                continue
-
             return alarm
 
     def test(self):
-        valid, msg, results = self.migrated_check.get_test_results()
+        valid, msg, results = self.migrated_check.test()
         if not valid:
-            return False, 'Check test failed', msg
+            return False, 'Check test failed', results
+
+        print pprint.pformat(results)
 
         # BUG: check results need moniitoring_zone_id and status for the alarm test to work, agent
         #      checks do not provide this.
@@ -65,9 +56,9 @@ class MigratedAlarm(object):
         alarm_result = self.rs_api.test_alarm(self.migrated_check.rs_entity, criteria=self._alarm_cache['criteria'], check_data=results)
         for r in alarm_result:
             if r['state'] != 'OK':
-                return False, 'Alarm test failed', pprint.pformat(alarm_result)
+                return False, 'Alarm test failed', alarm_result
 
-        return True, 'Alarm test successful', pprint.pformat(alarm_result)
+        return True, 'Alarm test successful', alarm_result
 
     def save(self, commit=True):
         if not self.rs_alarm:
@@ -96,8 +87,10 @@ class MigratedAlarm(object):
 
     @classmethod
     def create_from_migrated_check(cls, migrated_check):
-        alarms = translate(migrated_check)
-        return [cls(migrated_check, alarm) for alarm in alarms]
+        alarm = translate(migrated_check)
+        if not alarm:
+            return None
+        return cls(migrated_check, alarm)
 
 
 class AlarmMigrator(object):
@@ -128,34 +121,30 @@ class AlarmMigrator(object):
         for migrated_entity in self.migrator.migrated_entities:
             for migrated_check in migrated_entity.migrated_checks:
 
-                alarms = MigratedAlarm.create_from_migrated_check(migrated_check)
+                alarm = MigratedAlarm.create_from_migrated_check(migrated_check)
 
                 self.logger.info('Node: %s' % migrated_check.ck_node)
                 self.logger.info('Check: %s' % migrated_check.ck_check)
 
-                if not alarms:
-                    self.logger.info('No alarms to create')
+                if not alarm:
+                    self.logger.info('No alarm to create\n')
+                    continue
 
-                for alarm in alarms:
-                    self.logger.info('Alarm: %s' % alarm)
-                    self.logger.debug('Alarm Criteria:\n%s' % alarm._alarm_cache['criteria'])
-
-                    action, result = alarm.save(commit=False)
-
-                    if action in ['Created', 'Updated']:
-                        if not self.no_test:
-                            valid, msg, results = alarm.test()
-                            self.logger.info(msg)
-                            self.logger.debug('%s' % (results))
-                            if not valid:
-                                if utils.get_input('Ignore this alarm?', options=['y', 'n'], default='y') == 'y':
-                                    continue
-
-                        if self.auto or utils.get_input('Save this alarm?', options=['y', 'n'], default='y') == 'y':
-                            action, _ = alarm.save()
-                            self.logger('%s alarm %s' % (action, alarm.rs_alarm.id))
-
-                    else:
-                        self.logger.info('Found alarm %s' % alarm.rs_alarm.id)
+                self.logger.info('Alarm: %s' % alarm)
+                self.logger.debug('Alarm Criteria:\n%s' % alarm._alarm_cache['criteria'])
+                action, result = alarm.save(commit=False)
+                if action in ['Created', 'Updated']:
+                    if not self.no_test:
+                        valid, msg, results = alarm.test()
+                        self.logger.info(msg)
+                        self.logger.debug('%s' % (pprint.pformat(results)))
+                        if not valid:
+                            if utils.get_input('Ignore this alarm?', options=['y', 'n'], default='y') == 'y':
+                                continue
+                    if self.auto or utils.get_input('Save this alarm?', options=['y', 'n'], default='y') == 'y':
+                        action, _ = alarm.save()
+                        self.logger.info('%s alarm %s' % (action, alarm.rs_alarm.id))
+                else:
+                    self.logger.info('Found alarm %s' % alarm.rs_alarm.id)
 
                 self.logger.info('')
