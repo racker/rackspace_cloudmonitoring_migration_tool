@@ -73,6 +73,17 @@ def translate_agent_memory(rs_check, ck_check, notification_plan):
         return _make_alarm('memory_percent_used', rs_check, notification_plan, criteria)
 
 
+def translate_agent_filesystem(rs_check, ck_check, notification_plan):
+    criteria = ""
+    if 'fs_critical' in ck_check.details:
+        criteria = criteria + templates.disk_percent_critical.format(disk_percent_critical=ck_check.details['fs_critical'])
+    if 'fs_warn' in ck_check.details:
+        criteria = criteria + templates.disk_percent_warning.format(disk_percent_warning=ck_check.details['fs_warn'])
+    if 'fs_critical' in ck_check.details or 'fs_warn' in ck_check.details:
+        criteria = criteria + templates.disk_percent_ok.format()
+    if criteria:
+        return _make_alarm('disk_percent_used', rs_check, notification_plan, criteria)
+
 _map = {
     'remote.http': translate_http,
     'remote.ping': translate_ping,
@@ -81,6 +92,7 @@ _map = {
     'remote.tcp': translate_tcp,
     'agent.memory': translate_agent_memory,
     'agent.plugin': translate_agent_plugin,
+    'agent.filesystem': translate_agent_filesystem
 }
 
 

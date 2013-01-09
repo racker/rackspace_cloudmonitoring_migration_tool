@@ -104,7 +104,11 @@ class MigratedEntity(object):
         e.pop('label')  # don't actually update label
 
         entity_ips = dict(self.rs_entity.ip_addresses)
-        if e['ip_addresses'] == entity_ips:
+        for k, v in entity_ips.items():
+            if v == e['ip_addresses'].get(k):
+                e['ip_addresses'].pop(k)
+
+        if not e['ip_addresses']:
             e.pop('ip_addresses')
 
         # leave the rest of the metadata alone

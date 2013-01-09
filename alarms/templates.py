@@ -75,17 +75,34 @@ return new AlarmStatus(OK, 'DNS record exists');
 
 memory_percent_critical = \
 """
-if (metric['used_percent'] > {memory_percent_critical}) {{
+if (percentage(metric['used'], metric['total']) > {memory_percent_critical}) {{
   return new AlarmStatus(CRITICAL, 'Memory usage exceeded {memory_percent_critical}%');
 }}
 """
 memory_percent_warning = \
 """
-if (metric['used_percent'] > {memory_percent_warning}) {{
+if (percentage(metric['used'], metric['total']) > {memory_percent_warning}) {{
   return new AlarmStatus(WARNING, 'Memory usage exceeded {memory_percent_warning}%');
 }}
 """
 memory_percent_ok = \
 """
 return new AlarmStatus(OK, 'Memory usage was normal');
+"""
+
+disk_percent_critical = \
+"""
+if (percentage(metric['used'], metric['total']) > {disk_percent_critical}) {{
+  return new AlarmStatus(CRITICAL, 'Disk usage exceeded {disk_percent_critical}%');
+}}
+"""
+disk_percent_warning = \
+"""
+if (percentage(metric['used'], metric['total']) > {disk_percent_warning}) {{
+  return new AlarmStatus(WARNING, 'Disk usage exceeded {disk_percent_warning}%');
+}}
+"""
+disk_percent_ok = \
+"""
+return new AlarmStatus(OK, 'Disk usage was normal');
 """

@@ -29,11 +29,12 @@ class MigratedCheck(object):
         'SSH': 'remote.ssh',
         'DNS': 'remote.dns',
         'TCP': 'remote.tcp',
-        'IO': 'agent.disk',
+        'DISK': 'agent.filesystem',
         'CPU': 'agent.cpu',
         'MEMORY': 'agent.memory',
         'PLUGIN': 'agent.plugin',
         'BANDWIDTH': 'agent.network',
+        'LOADAVG': 'agent.load_average'
     }
 
     ck_api = None
@@ -95,7 +96,7 @@ class MigratedCheck(object):
             # set up monitoring zones for the check
             self._check_cache['monitoring_zones'] = self.monitoring_zones
             # target
-            self._check_cache['target_hostname'] = self.ck_check.target_hostname
+            self._check_cache['target_alias'] = 'public0_v4'
 
         # do check specific stuff
         f = getattr(self, '_%s' % (self.type.replace('.', '_')), None)
@@ -135,7 +136,7 @@ class MigratedCheck(object):
         if c['metadata'].get('ck_node_id') == self.rs_check.extra.get('ck_node_id'):
             c.pop('metadata')
 
-        for key in ['details', 'label', 'monitoring_zones', 'disabled', 'target_hostname', 'type']:
+        for key in ['details', 'label', 'monitoring_zones', 'disabled', 'target_alias', 'type']:
             if c.get(key) == getattr(self.rs_check, key, None):
                 try:
                     c.pop(key)
@@ -189,6 +190,14 @@ class MigratedCheck(object):
         args = self.ck_check.details.get('args')
         if args:
             self._check_cache['details']['args'] = args.split(' ')
+
+    def _agent_network(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['target'] = self.ck_check.details.get('if_name', 'eth0')
+
+    def _agent_filesystem(self):
+        self._check_cache['details'] = {}
+        self._check_cache['details']['target'] = self.ck_check.details.get('path', '/')
 
 
 class CheckMigrator(object):
