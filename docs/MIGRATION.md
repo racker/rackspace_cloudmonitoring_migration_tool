@@ -15,7 +15,6 @@ This system had several advantages: it automated the process of adding and remov
 In contrast, Cloud Monitoring employs a much simpler model in which entities and checks form a hierarchy.  Every check is a direct attribute of a single entity, and checks are not applied using automated queries.  Each check is configured to run at a specific time interval, from a configurable set of monitoring zones, ensuring that your servers are monitored even in the event of Rackspace datacenter failure.  These data are then used to generate alerts, based upon a Javascript-like domain specific alarm language.
 
 Given the lack of entity syncing, and automatic check application in Cloud Monitoring, some effort will be required on your part to keep your monitoring configuration in sync with the current state of your infrastructure.  Although this may be inconvenient, we feel that the reliability and scalability benefits of Cloud Monitoring outweigh these concerns, especially given that most users with large monitoring setups already use configuration management software.  We provide open source Chef recipes which you can use to automatically configure Cloud Monitoring.  Furthermore, given the simple REST API provided by Cloud Monitoring, integration into other configuration management systems should be possible.
-
       
 ## Migration Tools
 
@@ -34,3 +33,81 @@ Although this script can be used to keep your Cloud Monitoring setup in sync wit
 We have developed an open source chef cookbook for using Cloud Monitoring; Documentation is available in the README.  If you discover bugs, or incomplete information, please file a Github issue and we will look into them!
 
 ## Appendix: Feature Comparison
+
+<table>
+<tr><th>Feature</th><th>Cloudkick</th><th>Cloud Monitoring</th></tr>
+<tr>
+      <td>Entity creation</td>
+      <td>Automatic entity syncing across multiple cloud providers.  Manual entity creation also supported.</td>
+      <td>Automatically syncing of Rackspace legacy and next-gen Cloud Servers.  Manual entity creation also supported.</td>
+</tr>
+<tr>
+      <td>Tagging</td>
+      <td>Tags may be applied to any entity.</td>
+      <td>Not yet supported.</td>
+</tr>
+<tr>
+      <td>Check application</td>
+      <td>Manually, or automatically from tag-based queries.</td>
+      <td>Manual application only</td>
+</tr>
+<tr>
+      <td>Alarm language</td>
+      <td>Not supported</td>
+      <td>Alerts triggered using a domain-specific language that supports:
+            <ul>
+                  <li>Flow control (if statements)</li>
+                  <li>Binary comparison operations</li>
+                  <li>Regular expressions</li>
+                  <li>Access to previous metric state</li>
+            </ul>
+            The language is not Turing-complete, and does not support:
+            <ul>
+                  <li>Persistent state</li>
+                  <li>Looping</li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>Notification types</td>
+      <td>
+            <ul>
+                  <li>Email</li>
+                  <li>SMS</li>
+                  <li>Webhook</li>
+                  <li>PagerDuty</li>
+            </ul>
+</td>
+      <td>
+            <ul>
+                  <li>Email</li>
+                  <li>Webhook</li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>External Checks</td>
+      <td>See the <a href="https://support.cloudkick.com/API/2.0/List_Check_Types">list of check types</a>.</td>
+      <td>See the <a href="http://docs.rackspace.com/cm/api/v1.0/cm-devguide/content/appendix-check-types.html">list of available check types and fields</a>.</td>
+</tr>
+<tr>
+      <td>Internal Checks</td>
+      <td>Supported via an agent.  Also supports custom plugins.</td>
+      <td>Supported via an agent.  Also supports custom plugins.  Agents connect to up to three monitoring zones to ensure fault-tolerance.</td>
+</tr>
+
+<tr>
+      <td>Billing</td>
+      <td>Plan-based billing, based upon number of monitored servers.</td>
+      <td>Billing per unit time based upon number of active checks, and number of monitoring zones</td>
+</tr>
+
+
+
+<tr>
+      <td></td>
+      <td></td>
+      <td></td>
+</tr>
+
+</table>
