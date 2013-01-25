@@ -214,11 +214,11 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
       <td>Alert Consistency</td>
       <td>Not supported</td>
       <td>Support for three alert consistency levels:
-            <dl>
-                  <dt>ONE</dt><dd>trigger alert if any functioning monitoring zone reports a failure</dd>
-                  <dt>QUORUM</dt><dd>trigger alert if more than 50% of functioning monitoring zones report a failure</dd>
-                  <dt>ALL</dt><dd>trigger alert if all functioning monitoring zones report a failure</dd>
-            </dl>
+            <ul>
+                  <li><strong>ONE</strong> trigger alert if any functioning monitoring zone reports a failure</li>
+                  <li><strong>QUORUM</strong> trigger alert if more than 50% of functioning monitoring zones report a failure</li>
+                  <li><strong>ALL</strong> trigger alert if all functioning monitoring zones report a failure</li>
+            </ul>
       </td>
 </tr>
 </table>
