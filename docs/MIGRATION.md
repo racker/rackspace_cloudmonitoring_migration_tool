@@ -64,7 +64,7 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
 <tr>
       <td>Alarm language</td>
       <td>Not supported</td>
-      <td>Alerts triggered using a domain-specific language that supports:
+      <td>Alerts triggered using a <a href="http://docs.rackspace.com/cm/api/v1.0/cm-devguide/content/alerts-language.html#concepts-alarms-alarm-language">domain-specific language</a> that supports:
             <ul>
                   <li>Flow control (if statements)</li>
                   <li>Binary comparison operations</li>
@@ -120,7 +120,7 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
 <tr>
       <td>GUI</td>
       <td>Interactive web application.</td>
-      <td>Partial integration into Next-Gen Control Panel</td>
+      <td>Partial integration into <a href="https://mycloud.rackspace.com/">Next-Gen Control Panel</a></td>
 </tr>
 <tr>
       <td>API</td>
