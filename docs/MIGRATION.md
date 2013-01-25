@@ -189,13 +189,30 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
       </td>
       <td>Not supported</td>
 </tr>
-<tr>
-      <td></td>
-      <td></td>
-      <td></td>
-</tr>
 </table>
 
-            <ul>
-                  <li></li>
-            </ul>
+### Reliability
+
+<table>
+<tr>
+      <td>Failure points</td>
+      <td>Many single points of failure.</td>
+      <td>Designed to be extremely fault-tolerant.</td>
+</tr>
+<tr>
+      <td>Monitoring zones</td>
+      <td>Checks performed from a single zone.</td>
+      <td>Checks performed from up to five geographically-distributed monitoring zones.</td>
+</tr>
+<tr>
+      <td>Alert Consistency</td>
+      <td>Not supported</td>
+      <td>Support for three alert consistency levels:
+            <dl>
+                  <dt>ONE</dt><dd>trigger alert if any functioning monitoring zone reports a failure</dd>
+                  <dt>QUORUM</dt><dd>trigger alert if more than 50% of functioning monitoring zones report a failure</dd>
+                  <dt>ALL</dt><dd>trigger alert if all functioning monitoring zones report a failure</dd>
+            </dl>
+      </td>
+</tr>
+</table>
