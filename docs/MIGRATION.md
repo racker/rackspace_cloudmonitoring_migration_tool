@@ -20,7 +20,7 @@ Given the lack of entity syncing, and automatic check application in Cloud Monit
 
 ### Monitoring GUI
 
-Currently, Cloud Monitoring lacks visualization tools.  Although you can retrieve monitoring data and graph it yourself, this is inconvenient and not easily automated. In the interim--as more robust graphing tools are being developed--we created a lightweight and open source monitoring GUI, that graphs your monitoring data and supports saved graphs.  We provide a [hosted version of this project[(https://ui-labs.cloudmonitoring.rackspace.com/), or you may [download](https://github.com/racker/rackspace-monitoring-gui) and host it yourself  
+Currently, Cloud Monitoring lacks visualization tools.  Although you can retrieve monitoring data and graph it yourself, this is inconvenient and not easily automated. In the interim--as more robust graphing tools are being developed--we created a lightweight and open source monitoring GUI, that graphs your monitoring data and supports saved graphs.  We provide a [hosted version of this project](https://ui-labs.cloudmonitoring.rackspace.com/), or you may [download](https://github.com/racker/rackspace-monitoring-gui) and host it yourself  
 
 ### Migration Script
 
