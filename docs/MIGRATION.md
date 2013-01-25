@@ -34,6 +34,10 @@ We have developed an open source chef cookbook for using Cloud Monitoring; Docum
 
 ## Appendix: Feature Comparison
 
+A high level comparison between Cloudkick and Cloud Monitoring is provided below:
+
+### Basic Features
+
 <table>
 <tr><th>Feature</th><th>Cloudkick</th><th>Cloud Monitoring</th></tr>
 <tr>
@@ -101,13 +105,97 @@ We have developed an open source chef cookbook for using Cloud Monitoring; Docum
       <td>Plan-based billing, based upon number of monitored servers.</td>
       <td>Billing per unit time based upon number of active checks, and number of monitoring zones</td>
 </tr>
+</table>
 
+### Integration
 
-
+<table>
+<tr><th>Feature</th><th>Cloudkick</th><th>Cloud Monitoring</th></tr>
+<tr>
+      <td>GUI</td>
+      <td>Interactive web application.</td>
+      <td>Partial integration into Next-Gen Control Panel</td>
+</tr>
+<tr>
+      <td>API</td>
+      <td>
+            <ul>
+                  <li>API v1.0: (no docs)</li>
+                  <li>API v2.0: <a href="https://support.cloudkick.com/API/2.0">docs</a></li>
+            </ul>
+      </td>
+      <td>
+            <ul>
+                  <li>REST API v1.0: <a href="http://docs.rackspace.com/cm/api/v1.0/cm-devguide/content/overview.html"docs</a></li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>Tools and Integration</td>
+      <td>
+            <ul>
+                  <li>Python library: <a href="https://github.com/cloudkick/cloudkick-py"cloudkick-py</a></li>
+                  <li>Command-line: <a href="https://github.com/cloudkick/cloudkick-cli"cloudkick-cli</a></li>
+            </ul>
+      </td>
+      <td>
+            <ul>
+                  <li>Python library: <a href="https://github.com/racker/rackspace-monitoring-cli">rackspace-monitoring</a></li>
+                  <li>Command-line: <a href="https://github.com/racker/rackspace-monitoring-cli">rackspace-monitoring-cli</a></li>
+                  <li>Chef cookbook: <a href="https://github.com/racker/cookbook-cloudmonitoring">cloud monitoring chef cookbook</a></li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>Visualization</td>
+      <td>Graphing of metric data via Saved Graphs and Aggregate Graphs.</td>
+      <td>Not yet supported.  Interim support via <a href="https://github.com/racker/rackspace-monitoring-gui">rackspace-monitoring-gui</a>.</td>
+</tr>
+<tr>
+      <td>Website authentication</td>
+      <td>
+            <ul>
+                  <li>Username + password</li>
+                  <li>Two-factor authentication (optional)</li>
+            </ul>
+      </td>
+      <td>
+            <ul>
+                  <li>Username + password</li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>API authentication</td>
+      <td>
+            <ul>
+                  <li>OAuth</li>
+            </ul>
+      </td>
+      <td>
+            <ul>
+                  <li>Username + API key, then auth token.</li>
+            </ul>
+      </td>
+</tr>
+<tr>
+      <td>User permissions</td>
+      <td>
+            <ul>
+                  <li>Multiple user access to account</li>
+                  <li>Role-based permissions</li>
+                  <li>Configurable API key permissions</li>
+            </ul>
+      </td>
+      <td>Not supported</td>
+</tr>
 <tr>
       <td></td>
       <td></td>
       <td></td>
 </tr>
-
 </table>
+
+            <ul>
+                  <li></li>
+            </ul>
