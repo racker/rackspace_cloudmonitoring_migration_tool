@@ -3,7 +3,8 @@
 As you migrate from Cloudkick to Cloud Monitoring, it is important to understand the differences between their architectures.  The purpose of this guide is to explain some of those differences, and introduce tools that will ease the transition process.
 
 A more thorough description of these changes, and the motivation behind them may be found in a recent blog post.
-Cloudkick Architecture
+
+## Cloudkick Architecture
 
 In Cloudkick, checks were applied to nodes by using tag-based monitors--each monitor defined a set of checks to perform on the set of nodes that matched a specified query.  These nodes were automatically synchronized from various cloud providers using credentials supplied to Cloudkick.
 
