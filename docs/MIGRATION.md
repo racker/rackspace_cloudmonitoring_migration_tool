@@ -103,7 +103,7 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
 <tr>
       <td>Billing</td>
       <td>Plan-based billing, based upon number of monitored servers.</td>
-      <td>Billing per unit time based upon number of active checks, and number of monitoring zones</td>
+      <td><a href="http://www.rackspace.com/cloud/monitoring/pricing/">Billing per unit time</a> based upon number of active checks, and number of monitoring zones.</td>
 </tr>
 </table>
 
@@ -126,7 +126,7 @@ A high level comparison between Cloudkick and Cloud Monitoring is provided below
       </td>
       <td>
             <ul>
-                  <li>REST API v1.0: <a href="http://docs.rackspace.com/cm/api/v1.0/cm-devguide/content/overview.html"docs</a></li>
+                  <li>REST API v1.0: <a href="http://docs.rackspace.com/cm/api/v1.0/cm-devguide/content/overview.html">docs</a></li>
             </ul>
       </td>
 </tr>
