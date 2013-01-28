@@ -1,5 +1,4 @@
-
-**Before proceeding, we strongly suggest that you read the [Cloud Monitoring migraton guide](/racker/maas_migration/blob/master/docs/MIGRATION.md).**
+### **Before proceeding, we strongly suggest that you read the [Cloud Monitoring migraton guide](/racker/maas_migration/blob/master/docs/MIGRATION.md).**
 
 
 # Configuration instructions
