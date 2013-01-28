@@ -61,7 +61,7 @@ class Migrator(object):
 
 
 def _clean(args, options, config, rs, ck):
-    do_clean = utils.get_input('Do you want to purge all MaaS data?', options=['y', 'n'], default='n') == 'y'
+    do_clean = utils.get_input('Do you want to purge all Rackspace cloud monitoring data?', options=['y', 'n'], default='n') == 'y'
     if not do_clean:
         log.info('exiting...')
         sys.exit(0)

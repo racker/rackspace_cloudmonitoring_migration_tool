@@ -36,6 +36,6 @@ To migrate all Entities, Checks, Notification Endpoints, and Alarms automaticall
     
 ## Delete all MaaS data
 
-To delete **ALL** MaaS resources, run:
+To delete **ALL** Rackspace cloud monitoring resources, run:
 
     ./migrate.py -c /path/to/config.json clean
