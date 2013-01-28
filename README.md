@@ -12,7 +12,6 @@ Copy config.json.dist to config.json and set these configation settings:
 * **rackspace_apikey**: API key for a Rackspace account.
 
 ### Optional
-* **ca_certs_path**: Path to a CAcert root certificate bundle. You can find one here: http://curl.haxx.se/ca/cacert.pem
 * **monitoring_zones**: List of monitoring zones you want to apply remote checks to (default: ['mzord', 'mzdfw', 'mzlon'])
 
 # Usage Instructions
