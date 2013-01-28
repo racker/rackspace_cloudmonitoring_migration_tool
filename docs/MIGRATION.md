@@ -4,6 +4,11 @@ As you migrate from Cloudkick to Cloud Monitoring, it is important to understand
 
 A more thorough description of these changes, and the motivation behind them may be found in a recent [blog post](https://www.cloudkick.com/blog/).
 
+## TL;DR
+* Cloudkick automatically syncs nodes from cloud providers—Cloud Monitoring doesn't (except for Rackspace servers).
+* Cloudkick applies checks to nodes based on tags—Cloud Monitoring checks are individually applied to each entity.
+* For these reasons, use of configuration management software is highly recommended;  We provide a [Chef cookbook](#chef-cookbook).
+
 ## Cloudkick Architecture
 
 In Cloudkick, checks were applied to nodes by using tag-based monitors--each monitor defined a set of checks to perform on the set of nodes that matched a specified query.  These nodes were automatically synchronized from various cloud providers using credentials supplied to Cloudkick.
