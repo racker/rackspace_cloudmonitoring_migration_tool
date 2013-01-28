@@ -95,7 +95,7 @@ class MigratedAlarm(object):
 
 class AlarmMigrator(object):
 
-    def __init__(self, migrator, consistency_level=None, auto=False, dry_run=False, no_test=False, logger=None):
+    def __init__(self, migrator, logger=None):
 
         self.logger = logger
         if not self.logger:
@@ -105,7 +105,6 @@ class AlarmMigrator(object):
         self.ck_api = self.migrator.ck_api
         self.rs_api = self.migrator.rs_api
 
-        self.dry_run = self.migrator.options.dry_run
         self.auto = self.migrator.options.auto
         self.no_test = self.migrator.options.no_test
 

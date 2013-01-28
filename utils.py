@@ -142,26 +142,9 @@ def get_config(config_file):
     return config
 
 
-def setup_ssl(path=None):
-    """
-    Sets up and checks libcloud.security.CA_CERTS_PATH, appending any pre-configured paths
-    """
+def setup_ssl():
     import libcloud.security
-
-    if path:
-        print path
-        libcloud.security.CA_CERTS_PATH.append(path)
-
-    # if no CA bundles are found we need to do something
-    if not any([os.path.exists(path) for path in libcloud.security.CA_CERTS_PATH]):
-        log.debug("SSL CA bundle not found.")
-        log.debug("You can find an updated bundle here: http://curl.haxx.se/ca/cacert.pem")
-        log.debug("You can specify where to look with 'ca_certs_path' in the config.")
-        if get_input('Would you like to continue without verifying SSL certs?', options=['y', 'n'], default='n') == 'y':
-            libcloud.security.VERIFY_SSL_CERT = False
-            return
-        else:
-            sys.exit(1)
+    libcloud.security.VERIFY_SSL_CERT = False
 
 
 # pass a RS notification from the API and get out a nicely formatted string

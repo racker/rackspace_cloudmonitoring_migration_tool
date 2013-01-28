@@ -104,7 +104,7 @@ def _setup(options, args):
         run_tests('%s/tests' % SCRIPT_DIR)
     else:
         config = utils.get_config(options.config) if options.config else {}
-        utils.setup_ssl(options.ca_certs_path or config.get('ca_certs_path'))
+        utils.setup_ssl()
         ck = utils.setup_ck(config.get('cloudkick_oauth_key'), config.get('cloudkick_oauth_secret'))
         rs = utils.setup_rs(config.get('rackspace_username'), config.get('rackspace_apikey'))
 
@@ -124,11 +124,9 @@ def _setup(options, args):
             parser.print_usage()
 
 if __name__ == "__main__":
-    usage = 'usage: %prog [options] migrate/clean/shell/test'
+    usage = 'usage: %prog [options] migrate/clean/shell'
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--config", dest="config", help="path to config file", metavar="FILE")
-    parser.add_option("--dry-run", dest="dry_run", help="don't commit anything")
-    parser.add_option("--ca-certs-path", action="store", dest="ca_certs_path", help="path to cacert bundle for ssl verification", metavar="FILE")
     parser.add_option("-o", "--output", dest="output", help="path to logfile", metavar="FILE")
     parser.add_option("-a", "--auto", action="store_true", dest="auto", default=False, help="don't prompt for anything")
     parser.add_option("--no-test", action="store_true", dest="no_test", default=False, help="Do *NOT* test checks and alarms before they are created")

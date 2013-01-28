@@ -214,7 +214,6 @@ class CheckMigrator(object):
         self.monitoring_zones = self.migrator.config.get('monitoring_zones')
 
         self.no_test = self.migrator.options.no_test
-        self.dry_run = self.migrator.options.dry_run
         self.auto = self.migrator.options.auto
 
     def _test(self, check):

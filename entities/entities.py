@@ -138,7 +138,6 @@ class EntityMigrator(object):
         self.ck_api = self.migrator.ck_api
         self.rs_api = self.migrator.rs_api
 
-        self.dry_run = self.migrator.options.dry_run
         self.auto = self.migrator.options.auto
 
     def migrate(self):
