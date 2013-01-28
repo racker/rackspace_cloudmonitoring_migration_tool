@@ -7,7 +7,10 @@ A more thorough description of these changes, and the motivation behind them may
 ## TL;DR
 * Cloudkick automatically syncs nodes from cloud providers—Cloud Monitoring doesn't (except for Rackspace servers).
 * Cloudkick applies checks to nodes based on tags—Cloud Monitoring checks are individually applied to each entity.
-* For these reasons, use of configuration management software is highly recommended;  We provide a [Chef cookbook](#chef-cookbook).
+* For these reasons, the use of configuration management software is highly recommended;  We provide a [Chef cookbook](#chef-cookbook).
+* Graphing of Cloud Monitoring data is available using an open source [monitoring GUI](#monitoring-gui), until visualization tools are integrated into the Rackspace control panel.
+
+More details are prodivided below, and in the [feature comparison](#appendix-feature-comparison) chart.
 
 ## Cloudkick Architecture
 
