@@ -4,7 +4,7 @@ As you migrate from Cloudkick to Cloud Monitoring, it is important to understand
 
 A more thorough description of these changes, and the motivation behind them may be found in a recent [blog post](https://www.cloudkick.com/blog/).
 
-## **Please Read Before Using The Migration Tool**
+## --Please Read Before Using The Migration Tool--
 * Cloudkick automatically syncs nodes from cloud providers—Cloud Monitoring doesn't (except for Rackspace servers).
 * Cloudkick applies checks to nodes based on tags—Cloud Monitoring checks are individually applied to each entity.
 * For these reasons, the use of configuration management software is highly recommended;  We provide a [Chef cookbook](#chef-cookbook).
