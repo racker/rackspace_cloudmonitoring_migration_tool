@@ -19,7 +19,7 @@ In Cloudkick, checks were applied to nodes by using tag-based monitors—each mo
 This system had several advantages: it automated the process of adding and removing nodes as they became active or were destroyed, it simplified the process of monitoring a new node in an appropriate manner, and it allowed users to change the monitoring configuration of large sets of nodes in a single step.  Unfortunately, as the complexity of the system grew, we found that these features caused significant reliability problems.
       
       
-![Cloudkick Architecture Diagram](https://raw.github.com/racker/rackspace_cloudmonitoring_migration_tool/master/docs/images/cloud%20monitoring%20architecture.png)
+![Cloudkick Architecture Diagram](https://raw.github.com/racker/rackspace_cloudmonitoring_migration_tool/master/docs/images/cloudkick%20architecture.png)
 
 
 ## Cloud Monitoring Architecture
