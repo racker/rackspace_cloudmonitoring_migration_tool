@@ -19,7 +19,7 @@ In Cloudkick, checks were applied to nodes by using tag-based monitors—each mo
 This system had several advantages: it automated the process of adding and removing nodes as they became active or were destroyed, it simplified the process of monitoring a new node in an appropriate manner, and it allowed users to change the monitoring configuration of large sets of nodes in a single step.  Unfortunately, as the complexity of the system grew, we found that these features caused significant reliability problems.
       
       
-![Cloudkick Architecture Diagram](/racker/rackspace_cloudmonitoring_migration_tool/raw/master/docs/images/cloudkick architecture.png)
+![Cloudkick Architecture Diagram](https://raw.github.com/racker/rackspace_cloudmonitoring_migration_tool/master/docs/images/cloud%20monitoring%20architecture.png)
 
 
 ## Cloud Monitoring Architecture
@@ -28,7 +28,7 @@ In contrast, Cloud Monitoring employs a much simpler model in which entities and
 
 Given the lack of entity syncing, and automatic check application in Cloud Monitoring, some effort will be required on your part to keep your monitoring configuration in sync with the current state of your infrastructure.  Although this may be inconvenient, we feel that the reliability and scalability benefits of Cloud Monitoring outweigh these concerns, especially given that most users with large monitoring setups already use configuration management software.  We provide open source Chef recipes which you can use to automatically configure Cloud Monitoring.  Furthermore, given the simple REST API provided by Cloud Monitoring, integration into other configuration management systems should be possible.
 
-![Cloud Monitoring Architecture Diagram](/racker/rackspace_cloudmonitoring_migration_tool/raw/master/docs/images/cloud monitoring architecture.png)
+![Cloud Monitoring Architecture Diagram](https://raw.github.com/racker/rackspace_cloudmonitoring_migration_tool/master/docs/images/cloud%20monitoring%20architecture.png)
 
 ## Migration Tools
 
