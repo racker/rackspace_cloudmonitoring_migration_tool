@@ -62,7 +62,7 @@ class MigratedEntity(object):
         """
         self._entity_cache['label'] = self.ck_node.label
         self._entity_cache['ip_addresses'] = self.ck_node.ip_addresses
-        self._entity_cache['agent_id'] = self.ck_node.label
+        self._entity_cache['agent_id'] = self.ck_node.label.strip().replace(" ", "_")
         self._entity_cache['metadata'] = {'ck_node_id': self.ck_node.id}
 
     def _find_entity(self):
