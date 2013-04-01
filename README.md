@@ -1,4 +1,4 @@
-# \*\*Before proceeding, we strongly suggest that you read the [Cloud Monitoring Migration Guide](/racker/rackspace_cloudmonitoring_migration_tool/blob/master/docs/MIGRATION.md).**
+# \*\*Before proceeding, we strongly suggest that you read the [Cloud Monitoring Migration Guide](https://github.com/racker/rackspace_cloudmonitoring_migration_tool/blob/master/docs/MIGRATION.md).**
 
 
 # Configuration instructions
