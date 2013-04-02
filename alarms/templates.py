@@ -35,7 +35,7 @@ if (metric['duration'] >= {response_time}) {{
 """
 http_ok = \
 """
-return new AlarmStatus(OK)
+return new AlarmStatus(OK);
 """
 
 ping_packet_loss = \

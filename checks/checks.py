@@ -104,7 +104,6 @@ class MigratedCheck(object):
             f()
 
     def _find_check(self):
-
         for c in self.migrated_entity.get_rs_checks():
             if c.extra.get('ck_check_id') == self.ck_check.id:
                 return c
@@ -131,22 +130,22 @@ class MigratedCheck(object):
                 self.rs_check = self.rs_api.create_check(self.rs_entity, **self._check_cache)
             return 'Created', self._check_cache
 
-        c = copy(self._check_cache)
+        chk = copy(self._check_cache)
 
-        if c['metadata'].get('ck_node_id') == self.rs_check.extra.get('ck_node_id'):
-            c.pop('metadata')
+        if chk['metadata'].get('ck_check_id') == self.rs_check.extra.get('ck_check_id'):
+            chk.pop('metadata')
 
         for key in ['details', 'label', 'monitoring_zones', 'disabled', 'target_alias', 'type']:
-            if c.get(key) == getattr(self.rs_check, key, None):
+            if chk.get(key) == getattr(self.rs_check, key, None):
                 try:
-                    c.pop(key)
+                    chk.pop(key)
                 except KeyError:
                     pass
 
-        if c:
+        if chk:
             if commit:
-                self.rs_check = self.rs_api.update_check(self.rs_check, c)
-            return 'Updated', c
+                self.rs_check = self.rs_api.update_check(self.rs_check, chk)
+            return 'Updated', chk
 
         return 'Unchanged', None
 
@@ -167,6 +166,8 @@ class MigratedCheck(object):
         if self.ck_check.type == 'HTTPS':
             rs_details['ssl'] = True
 
+        rs_details['follow_redirects'] = True
+        rs_details['include_body'] = False
         self._check_cache['details'] = rs_details
 
     def _remote_ssh(self):

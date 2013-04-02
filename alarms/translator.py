@@ -19,15 +19,15 @@ def translate_agent_plugin(rs_check, ck_check, notification_plan):
 def translate_http(rs_check, ck_check, notification_plan):
     criteria = ''
 
-    if 'code' in ck_check['details']:
+    if 'code' in ck_check.details:
         criteria += templates.http_status_code.format(status_code_regex=ck_check.details['code'])
 
-    if 'body' in ck_check['details']:
+    if 'body' in ck_check.details:
         # The regex is already applied in the Check, so the alarm
         # simply checks whether the match is an empty string
         criteria += templates.http_body_match.format(body_match=ck_check.details['body'])
 
-    if 'rt_ms' in ck_check['details']:
+    if 'rt_ms' in ck_check.details:
         criteria += templates.http_response_time.format(response_time=ck_check.details['rt_ms'])
 
     criteria += templates.http_ok
@@ -53,7 +53,7 @@ def translate_dns(rs_check, ck_check, notification_plan):
 def translate_tcp(rs_check, ck_check, notification_plan):
     criteria = ''
 
-    if 'banner_match' in ck_check['details']:
+    if 'banner_match' in ck_check.details:
         criteria += templates.tcp_banner_match.format(banner_match=ck_check.details['banner_match'])
 
     criteria += templates.tcp_connection_established.format()
