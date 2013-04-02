@@ -78,7 +78,7 @@ class MigratedEntity(object):
             public_entity_ips = [ip for label, ip in e.ip_addresses if 'public' in label]
             public_node_ips = [ip for label, ip in self.ck_node.ip_addresses.items() if 'public' in label]
             for ip in public_node_ips:
-                if ip in public_entity_ips:
+                if ip in public_entity_ips and not e.extra.get('ck_node_id'):
                     return e
         return None
 
