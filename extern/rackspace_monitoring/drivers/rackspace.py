@@ -640,7 +640,7 @@ class RackspaceMonitoringDriver(MonitoringDriver):
             for key in ipaddrs.keys():
                 ips.append((key, ipaddrs[key]))
         return Entity(id=entity['id'], label=entity['label'],
-                      extra=entity['metadata'], driver=self,
+                      extra=entity['metadata'], uri=entity.get('uri'), driver=self,
                       agent_id=entity.get('agent_id'), ip_addresses=ips)
 
     def delete_entity(self, entity, **kwargs):

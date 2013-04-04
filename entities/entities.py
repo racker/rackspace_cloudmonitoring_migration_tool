@@ -98,20 +98,28 @@ class MigratedEntity(object):
                 self.rs_entity = self.rs_api.create_entity(**e)
             return 'Created', self._entity_cache
 
-        # check for different fields on the upstream object
+
+
         e = copy(self._entity_cache)
 
-        e.pop('label')  # don't actually update label
-
-        entity_ips = dict(self.rs_entity.ip_addresses)
-        for k, v in entity_ips.items():
-            if v == e['ip_addresses'].get(k):
-                e['ip_addresses'].pop(k)
-
-        if not e['ip_addresses']:
+        # if this is an entity added automatically, we can only update metadata and agent_id
+        if self.rs_entity.uri:
+            e.pop('label')
             e.pop('ip_addresses')
+        else:
+          # check for different fields on the upstream object
+          entity_ips = dict(self.rs_entity.ip_addresses)
+          for k, v in entity_ips.items():
+              if v == e['ip_addresses'].get(k):
+                  e['ip_addresses'].pop(k)
 
-        # leave the rest of the metadata alone
+          if not e['ip_addresses']:
+              e.pop('ip_addresses')
+
+          if e.get('label') == self.rs_entity.label:
+              e.pop('label')
+
+
         if e['metadata'].get('ck_node_id') == self.rs_entity.extra.get('ck_node_id'):
             e.pop('metadata')
 
