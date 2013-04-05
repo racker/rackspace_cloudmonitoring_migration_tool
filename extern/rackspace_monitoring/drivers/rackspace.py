@@ -376,6 +376,7 @@ class RackspaceMonitoringDriver(MonitoringDriver):
 
     def _to_alarm(self, alarm, value_dict):
         return Alarm(id=alarm['id'],
+            label=alarm.get('label'),
             check_type=alarm.get('check_type'),
             check_id=alarm.get('check_id'),
             criteria=alarm['criteria'],

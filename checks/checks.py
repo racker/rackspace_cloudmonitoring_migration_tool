@@ -34,7 +34,8 @@ class MigratedCheck(object):
         'MEMORY': 'agent.memory',
         'PLUGIN': 'agent.plugin',
         'BANDWIDTH': 'agent.network',
-        'LOADAVG': 'agent.load_average'
+        'LOADAVG': 'agent.load_average',
+        'APACHE': 'agent.apache'
     }
 
     ck_api = None
@@ -152,6 +153,16 @@ class MigratedCheck(object):
     ########################
     # Check Specific Stuff #
     ########################
+    def _agent_apache(self):
+        rs_details = {}
+        ck_details = self.ck_check.details
+        ip = ck_details.get('ipaddress', '127.0.0.1')
+        port = ck_details.get('port', 80)
+        url = 'http://%s:%s/server-status' % (ip, port)
+
+        rs_details['url'] = url
+        self._check_cache['details'] = rs_details
+
     def _remote_http(self):
         ck_details = self.ck_check.details
         rs_details = {}

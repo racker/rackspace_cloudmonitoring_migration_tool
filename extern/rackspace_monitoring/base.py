@@ -138,10 +138,10 @@ class NotificationType(object):
 
 
 class Alarm(object):
-    def __init__(self, id, criteria, driver, entity_id, extra,
+    def __init__(self, id, label, criteria, driver, entity_id, extra,
                  check_type=None, check_id=None, notification_plan_id=None):
-        #import ipdb; ipdb.set_trace()
         self.id = id
+        self.label = label
         self.check_type = check_type
         self.check_id = check_id
         self.criteria = criteria
@@ -157,7 +157,7 @@ class Alarm(object):
         return self.driver.delete_alarm(self)
 
     def __repr__(self):
-        return ('<Alarm: id=%s ...>' % (self.id)).encode('utf-8')
+        return ('<Alarm: label=%s, id=%s ...>' % (self.label, self.id)).encode('utf-8')
 
 
 class Check(object):

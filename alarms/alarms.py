@@ -71,7 +71,7 @@ class MigratedAlarm(object):
         if alarm['metadata'] == self.rs_alarm.extra:
             alarm.pop('metadata')
 
-        for key in ['check_id', 'notification_plan_id', 'criteria']:
+        for key in ['label', 'check_id', 'notification_plan_id', 'criteria']:
             if alarm.get(key) == getattr(self.rs_alarm, key, None):
                 try:
                     alarm.pop(key)
@@ -144,6 +144,6 @@ class AlarmMigrator(object):
                         action, _ = alarm.save()
                         self.logger.info('%s alarm %s' % (action, alarm.rs_alarm.id))
                 else:
-                    self.logger.info('Found alarm %s' % alarm.rs_alarm.id)
+                    self.logger.info('No update needed for alarm %s' % alarm.rs_alarm.id)
 
                 self.logger.info('')

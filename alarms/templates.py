@@ -14,6 +14,37 @@ if (metric['legacy_state'] == 'warn') {
 return new AlarmStatus(OK);
 """
 
+# APACHE
+apache_idle_workers_crit = \
+"""
+if (metric['idle_workers'] < {apache_idle_workers_crit}) {{
+  return new AlarmStatus(CRITICAL, 'Apache has fewer than {apache_idle_workers_crit} workers.');
+}}
+"""
+apache_idle_workers_warn = \
+"""
+if (metric['idle_workers'] < {apache_idle_workers_warn}) {{
+  return new AlarmStatus(WARNING, 'Apache has fewer than {apache_idle_workers_warn} workers.');
+}}
+"""
+apache_req_per_sec_crit = \
+"""
+if (metric['requests_per_second'] > {apache_req_per_sec_crit}) {{
+  return new AlarmStatus(CRITICAL, 'Apache has more than {apache_req_per_sec_crit} requests per second.');
+}}
+"""
+apache_req_per_sec_warn = \
+"""
+if (metric['requests_per_second'] > {apache_req_per_sec_warn}) {{
+  return new AlarmStatus(WARNING, 'Apache has more than {apache_req_per_sec_warn} requests per second.');
+}}
+"""
+apache_ok = \
+"""
+return new AlarmStatus(OK);
+"""
+
+
 # HTTP
 http_status_code = \
 """

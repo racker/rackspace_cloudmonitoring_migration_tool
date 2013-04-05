@@ -8,6 +8,7 @@ def _make_alarm(label, rs_check, notification_plan, criteria):
     alarm['metadata'] = rs_check.extra
     alarm['metadata']['check_type'] = label
     alarm['criteria'] = criteria
+    alarm['label'] = label
     return alarm
 
 
@@ -15,6 +16,21 @@ def translate_agent_plugin(rs_check, ck_check, notification_plan):
     criteria = templates.agent_plugin
     return _make_alarm('agent_plugin', rs_check, notification_plan, criteria)
 
+def translate_apache(rs_check, ck_check, notification_plan):
+    criteria = ''
+
+    if ck_check.details.get('apache_idle_workers_crit'):
+        criteria += templates.apache_idle_workers_crit.format(apache_idle_workers_crit=ck_check.details['apache_idle_workers_crit'])
+    if ck_check.details.get('apache_idle_workers_warn'):
+        criteria += templates.apache_idle_workers_warn.format(apache_idle_workers_warn=ck_check.details['apache_idle_workers_warn'])
+    if ck_check.details.get('apache_req_per_sec_crit'):
+        criteria += templates.apache_req_per_sec_crit.format(apache_req_per_sec_crit=ck_check.details['apache_req_per_sec_crit'])
+    if ck_check.details.get('apache_req_per_sec_warn'):
+        criteria += templates.apache_req_per_sec_warn.format(apache_req_per_sec_warn=ck_check.details['apache_req_per_sec_warn'])
+
+    criteria += templates.apache_ok
+
+    return _make_alarm('apache', rs_check, notification_plan, criteria)
 
 def translate_http(rs_check, ck_check, notification_plan):
     criteria = ''
@@ -92,7 +108,8 @@ _map = {
     'remote.tcp': translate_tcp,
     'agent.memory': translate_agent_memory,
     'agent.plugin': translate_agent_plugin,
-    'agent.filesystem': translate_agent_filesystem
+    'agent.filesystem': translate_agent_filesystem,
+    'agent.apache': translate_apache
 }
 
 
