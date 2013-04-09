@@ -106,13 +106,13 @@ return new AlarmStatus(OK, 'DNS record exists');
 
 memory_percent_critical = \
 """
-if (percentage(metric['used'], metric['total']) > {memory_percent_critical}) {{
+if (percentage(metric['actual_used'], metric['total']) > {memory_percent_critical}) {{
   return new AlarmStatus(CRITICAL, 'Memory usage exceeded {memory_percent_critical}%');
 }}
 """
 memory_percent_warning = \
 """
-if (percentage(metric['used'], metric['total']) > {memory_percent_warning}) {{
+if (percentage(metric['actual_used'], metric['total']) > {memory_percent_warning}) {{
   return new AlarmStatus(WARNING, 'Memory usage exceeded {memory_percent_warning}%');
 }}
 """
